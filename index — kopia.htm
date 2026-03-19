@@ -1,0 +1,1442 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Restaurant Hub - System Zarządzania</title>
+    
+    <!-- React & Babel -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Firebase SDK (Zgodne z wersją 8 / UMD dla przeglądarek) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-slate-50 overflow-hidden">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useMemo, useEffect } = React;
+
+        // ==========================================
+        // WERSJA APLIKACJI
+        // ==========================================
+        const APP_VERSION = "0.3.0";
+
+        // ==========================================
+        // KONFIGURACJA FIREBASE
+        // ==========================================
+        const MY_FIREBASE_CONFIG = {
+            apiKey: "AIzaSyB6fu4NDmp-aUMkLWRQdiRPM18jG3Esj7o",
+            authDomain: "hvac-65786.firebaseapp.com",
+            databaseURL: "https://hvac-65786-default-rtdb.europe-west1.firebasedatabase.app/",
+            projectId: "hvac-65786",
+            storageBucket: "hvac-65786.firebasestorage.app",
+            messagingSenderId: "952576771314",
+            appId: "1:952576771314:web:2179574a35c11281d5bc6b"
+        };
+
+        const firebaseConfig = MY_FIREBASE_CONFIG;
+        const appId = "local-restaurant-hub";
+
+        let db;
+        let auth;
+        let rtdb;
+        try {
+             if (!firebase.apps.length) {
+                firebase.initializeApp(firebaseConfig);
+            }
+            db = firebase.firestore();
+            auth = firebase.auth();
+            rtdb = firebase.database();
+        } catch (error) {
+            console.error("Błąd inicjalizacji Firebase:", error);
+        }
+
+        // ==========================================
+        // SYSTEM IKON 
+        // ==========================================
+        const Svg = ({ size = 24, className = "", children }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                {children}
+            </svg>
+        );
+
+        const Plus = (p) => <Svg {...p}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></Svg>;
+        const Search = (p) => <Svg {...p}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></Svg>;
+        const Clock = (p) => <Svg {...p}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></Svg>;
+        const CheckCircle2 = (p) => <Svg {...p}><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="m9 12 2 2 4-4"/></Svg>;
+        const AlertCircle = (p) => <Svg {...p}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></Svg>;
+        const Trash2 = (p) => <Svg {...p}><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></Svg>;
+        const ChevronRight = (p) => <Svg {...p}><polyline points="9 18 15 12 9 6"/></Svg>;
+        const Store = (p) => <Svg {...p}><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></Svg>;
+        const Calendar = (p) => <Svg {...p}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></Svg>;
+        const AlertTriangle = (p) => <Svg {...p}><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></Svg>;
+        const X = (p) => <Svg {...p}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></Svg>;
+        const LayoutDashboard = (p) => <Svg {...p}><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></Svg>;
+        const ClipboardList = (p) => <Svg {...p}><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></Svg>;
+        const BookOpen = (p) => <Svg {...p}><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></Svg>;
+        const StickyNote = (p) => <Svg {...p}><path d="M15.5 3H5a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2V8.5L15.5 3Z"/><path d="M15 3v6h6"/></Svg>;
+        const MapPin = (p) => <Svg {...p}><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></Svg>;
+        const Settings = (p) => <Svg {...p}><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></Svg>;
+        const FileText = (p) => <Svg {...p}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></Svg>;
+        const CheckSquare = (p) => <Svg {...p}><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></Svg>;
+        const BarChart3 = (p) => <Svg {...p}><path d="M3 3v18h18"/><rect x="7" y="10" width="4" height="7"/><rect x="15" y="4" width="4" height="13"/></Svg>;
+        const MoreVertical = (p) => <Svg {...p}><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></Svg>;
+        const Download = (p) => <Svg {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></Svg>;
+        const ExternalLink = (p) => <Svg {...p}><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></Svg>;
+        const Filter = (p) => <Svg {...p}><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></Svg>;
+        const ArrowUpDown = (p) => <Svg {...p}><path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/></Svg>;
+        const AlertSquare = (p) => <Svg {...p}><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></Svg>;
+        const Save = (p) => <Svg {...p}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></Svg>;
+        const Info = (p) => <Svg {...p}><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></Svg>;
+        const Building2 = (p) => <Svg {...p}><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></Svg>;
+        const Globe = (p) => <Svg {...p}><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/><path d="M2 12h20"/></Svg>;
+        const Mail = (p) => <Svg {...p}><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></Svg>;
+        const Edit = (p) => <Svg {...p}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></Svg>;
+        const Pencil = (p) => <Svg {...p}><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></Svg>;
+        const Share2 = (p) => <Svg {...p}><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></Svg>;
+        const LinkIcon = (p) => <Svg {...p}><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></Svg>;
+        const RotateCcw = (p) => <Svg {...p}><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></Svg>;
+        const Sparkles = (p) => <Svg {...p}><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></Svg>;
+        const Loader2 = (p) => <Svg {...p} className={`animate-spin ${p.className||''}`}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></Svg>;
+        const Wand2 = (p) => <Svg {...p}><path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72Z"/><path d="m14 7 3 3"/><path d="M5 6v4"/><path d="M19 14v4"/><path d="M10 2v2"/><path d="M7 8H3"/><path d="M21 16h-4"/><path d="M11 3H9"/></Svg>;
+        const ChevronUp = (p) => <Svg {...p}><polyline points="18 15 12 9 6 15"/></Svg>;
+        const ChevronDown = (p) => <Svg {...p}><polyline points="6 9 12 15 18 9"/></Svg>;
+        const LogOut = (p) => <Svg {...p}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></Svg>;
+
+        // ==========================================
+        // DANE POMOCNICZE
+        // ==========================================
+        const BRANDS = {
+          'KFC': { color: 'bg-red-600', text: 'text-white', light: 'bg-red-50' },
+          'Pizza Hut': { color: 'bg-red-800', text: 'text-white', light: 'bg-red-50' },
+          'Burger King': { color: 'bg-blue-700', text: 'text-white', light: 'bg-blue-50' },
+          'Starbucks': { color: 'bg-green-800', text: 'text-white', light: 'bg-green-50' },
+          'Popeyes': { color: 'bg-orange-500', text: 'text-white', light: 'bg-orange-50' }
+        };
+
+        const apiKey = "";
+        async function callGemini(userQuery, systemPrompt = "Jesteś asystentem technicznym w sieci restauracji.") {
+          if(!apiKey) return "Aby korzystać z AI, skonfiguruj klucz API.";
+          try {
+              const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+              const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                systemInstruction: { parts: [{ text: systemPrompt }] }
+              };
+              const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+              });
+              if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+              const result = await response.json();
+              return result.candidates?.[0]?.content?.parts?.[0]?.text || "Brak odpowiedzi od AI.";
+          } catch(err) {
+              return "Błąd połączenia z modelem AI.";
+          }
+        }
+
+        // ==========================================
+        // KOMPONENTY WIDOKÓW
+        // ==========================================
+        
+        const DashboardView = ({ restaurants, tickets, tasks, notes, onSelectTicket }) => (
+          <div className="space-y-6 animate-in fade-in duration-500">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <StatCard title="Restauracje" value={restaurants.length} icon={Store} color="blue" />
+              <StatCard title="Otwarte Zgłoszenia" value={tickets.filter(t => t.status !== 'Zakończone').length} icon={AlertCircle} color="red" />
+              <StatCard title="Zadania (Dziś)" value={tasks.filter(t => !t.completed).length} icon={CheckSquare} color="green" />
+              <StatCard title="Notatki" value={notes.length} icon={StickyNote} color="orange" />
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-indigo-950">
+                  <Clock size={20} className="text-indigo-600" /> Ostatnie Zgłoszenia
+                </h3>
+                <div className="space-y-3">
+                  {tickets.slice(0, 5).map(t => {
+                    const tRest = restaurants.find(r => r.id === t.restaurantId);
+                    return (
+                      <div 
+                        key={t.id} 
+                        onClick={() => tRest && onSelectTicket(tRest)}
+                        className="flex items-center justify-between p-3 bg-slate-50 rounded-xl cursor-pointer hover:bg-indigo-50 hover:shadow-sm transition-all group"
+                      >
+                        <div className="flex-1">
+                          <p className="font-semibold text-sm group-hover:text-indigo-700 transition-colors">{t.title}</p>
+                          <p className="text-xs text-slate-500">{tRest ? tRest.name : 'Nieznany lokal'}</p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className={`text-[10px] px-2 py-1 rounded-full font-bold uppercase ${t.priority === 'Wysoki' ? 'bg-red-100 text-red-700' : 'bg-slate-100'}`}>
+                            {t.priority}
+                          </span>
+                          <ChevronRight size={14} className="text-slate-300 group-hover:text-indigo-400 group-hover:translate-x-1 transition-all" />
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {tickets.length === 0 && <p className="text-sm text-slate-400 italic">Brak zgłoszeń.</p>}
+                </div>
+              </div>
+
+              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-indigo-950">
+                  <CheckSquare size={20} className="text-green-600" /> Zadania Priorytetowe
+                </h3>
+                <div className="space-y-3">
+                  {tasks.filter(t => !t.completed).slice(0, 5).map(t => (
+                    <div key={t.id} className="flex items-center gap-3 p-3 border-l-4 border-green-500 bg-green-50/30 rounded-r-xl">
+                      <input type="checkbox" className="rounded text-green-600" readOnly />
+                      <div className="flex-1">
+                        <p className="font-semibold text-sm">{t.title}</p>
+                        <p className="text-xs text-slate-500">Termin: {t.deadline}</p>
+                      </div>
+                    </div>
+                  ))}
+                  {tasks.filter(t => !t.completed).length === 0 && (
+                     <p className="text-sm text-slate-400 italic">Brak otwartych zadań w systemie.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+
+        const AllTicketsView = ({ tickets, restaurants, onGoToRestaurant, onEditTicket, onShareTicket, sortConfig, onRequestSort }) => {
+          const renderSortIcon = (key) => {
+            if (sortConfig.key !== key) return <ArrowUpDown size={10} className="text-slate-300" />;
+            return sortConfig.direction === 'asc' ? <ChevronUp size={10} className="text-indigo-600" /> : <ChevronDown size={10} className="text-indigo-600" />;
+          };
+
+          return (
+            <div className="space-y-4 animate-in fade-in duration-300">
+              <div className="flex justify-between items-end mb-2">
+                <div>
+                  <h2 className="text-xl font-black tracking-tight text-indigo-950">Wszystkie Zgłoszenia</h2>
+                  <p className="text-slate-500 text-xs">Podgląd statusu serwisowego całej sieci</p>
+                </div>
+              </div>
+              <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200 text-[10px] uppercase font-black text-slate-500">
+                      <th className="px-4 py-3 cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => onRequestSort('date')}>
+                        <div className="flex items-center gap-1">Data {renderSortIcon('date')}</div>
+                      </th>
+                      <th className="px-4 py-3 cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => onRequestSort('restaurantName')}>
+                        <div className="flex items-center gap-1">Lokal {renderSortIcon('restaurantName')}</div>
+                      </th>
+                      <th className="px-4 py-3">Problem</th>
+                      <th className="px-4 py-3 cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => onRequestSort('priority')}>
+                        <div className="flex items-center gap-1">Priorytet {renderSortIcon('priority')}</div>
+                      </th>
+                      <th className="px-4 py-3 cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => onRequestSort('status')}>
+                        <div className="flex items-center gap-1">Status {renderSortIcon('status')}</div>
+                      </th>
+                      <th className="px-4 py-3">Akcje</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {tickets.map(t => {
+                      const r = restaurants.find(res => res.id === t.restaurantId);
+                      return (
+                        <tr key={t.id} className="hover:bg-slate-50 transition-colors">
+                          <td className="px-4 py-3 text-xs text-slate-500">{t.date}</td>
+                          <td className="px-4 py-3">
+                            <p className="text-xs font-bold text-slate-800">{r?.name}</p>
+                            <p className="text-[9px] text-slate-400">{r?.brand}</p>
+                          </td>
+                          <td className="px-4 py-3 text-xs font-medium text-slate-700">{t.title}</td>
+                          <td className="px-4 py-3">
+                            <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase ${t.priority === 'Wysoki' ? 'bg-red-50 text-red-600' : 'bg-slate-100'}`}>
+                              {t.priority}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`text-[10px] px-2 py-1 rounded-md font-bold ${
+                              t.status === 'Zakończone' ? 'bg-green-50 text-green-700' : 
+                              t.status === 'W realizacji' ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-700'
+                            }`}>
+                              {t.status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <button onClick={() => onEditTicket(t)} className="text-slate-400 hover:text-indigo-600 transition-colors" title="Edytuj zgłoszenie"><Pencil size={14} /></button>
+                              <button onClick={() => onShareTicket(t, r?.name)} className="text-slate-400 hover:text-indigo-600 transition-colors" title="Udostępnij link"><Share2 size={14} /></button>
+                              <button onClick={() => r && onGoToRestaurant(r)} className="text-slate-400 hover:text-indigo-600 transition-colors" title="Przejdź do lokalu"><ExternalLink size={14} /></button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {tickets.length === 0 && (
+                        <tr><td colSpan="6" className="text-center py-8 text-sm text-slate-400">Brak zgłoszeń w bazie.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          );
+        };
+
+        const RestaurantListView = ({ restaurants, tickets, tasks, onAddClick, onSelect, sortConfig, onRequestSort, columnFilters, onFilterChange, onResetFilters }) => (
+          <div className="space-y-4 animate-in slide-in-from-bottom-4 duration-300">
+            <div className="flex justify-between items-end">
+              <div>
+                <h2 className="text-xl font-black tracking-tight text-indigo-950">Baza Restauracji ({restaurants.length})</h2>
+                <p className="text-slate-500 text-xs">Zarządzaj siecią lokali i ich danymi technicznymi</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={onResetFilters} className="bg-slate-100 text-slate-600 px-3 py-1.5 rounded-lg flex items-center gap-1.5 text-xs font-bold hover:bg-slate-200 transition-all active:scale-95 border border-slate-200" title="Wyczyść wszystkie filtry">
+                  <RotateCcw size={14} /> Wyczyść filtry
+                </button>
+                <button onClick={onAddClick} className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg flex items-center gap-1.5 text-xs font-bold shadow-sm hover:bg-indigo-700 transition-all active:scale-95">
+                  <Plus size={14} /> Dodaj Lokal
+                </button>
+              </div>
+            </div>
+            
+            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse table-fixed min-w-[800px]">
+                  <thead>
+                    <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-500 text-[10px] uppercase tracking-wider font-black">
+                      <th className="px-4 py-3 w-32">
+                        <div className="flex flex-col gap-1.5 text-indigo-900/60">
+                          <div className="flex items-center gap-1 cursor-pointer hover:text-indigo-600 transition-colors" onClick={() => onRequestSort('brand')}>Marka <ArrowUpDown size={10} /></div>
+                          <div className="relative"><Search size={10} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" /><input type="text" placeholder="Filtruj..." className="w-full pl-5 pr-2 py-1 bg-white border border-slate-200 rounded text-[9px] font-medium outline-none focus:ring-1 focus:ring-indigo-500" value={columnFilters.brand} onChange={(e) => onFilterChange('brand', e.target.value)} /></div>
+                        </div>
+                      </th>
+                      <th className="px-4 py-3">
+                        <div className="flex flex-col gap-1.5 text-indigo-900/60">
+                          <div className="flex items-center gap-1 cursor-pointer hover:text-indigo-600 transition-colors" onClick={() => onRequestSort('name')}>Nazwa <ArrowUpDown size={10} /></div>
+                          <div className="relative"><Search size={10} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" /><input type="text" placeholder="Filtruj..." className="w-full pl-5 pr-2 py-1 bg-white border border-slate-200 rounded text-[9px] font-medium outline-none focus:ring-1 focus:ring-indigo-500" value={columnFilters.name} onChange={(e) => onFilterChange('name', e.target.value)} /></div>
+                        </div>
+                      </th>
+                      <th className="px-4 py-3 w-32">
+                        <div className="flex flex-col gap-1.5 text-indigo-900/60">
+                          <div className="flex items-center gap-1 cursor-pointer hover:text-indigo-600 transition-colors" onClick={() => onRequestSort('city')}>Miasto <ArrowUpDown size={10} /></div>
+                          <div className="relative"><Search size={10} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" /><input type="text" placeholder="Filtruj..." className="w-full pl-5 pr-2 py-1 bg-white border border-slate-200 rounded text-[9px] font-medium outline-none focus:ring-1 focus:ring-indigo-500" value={columnFilters.city} onChange={(e) => onFilterChange('city', e.target.value)} /></div>
+                        </div>
+                      </th>
+                      <th className="px-4 py-3 w-24 text-center">
+                        <div className="flex flex-col gap-1.5 items-center text-indigo-900/60">
+                          <div className="flex items-center gap-1 cursor-pointer hover:text-indigo-600 transition-colors" onClick={() => onRequestSort('tickets')}>Status <ArrowUpDown size={10} /></div>
+                          <div className="h-[22px]" />
+                        </div>
+                      </th>
+                      <th className="px-4 py-3 w-16 text-right"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {restaurants.map(r => (
+                      <tr key={r.id} className="hover:bg-slate-50/80 transition-colors group cursor-pointer" onClick={() => onSelect(r)}>
+                        <td className="px-4 py-2.5"><span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase whitespace-nowrap ${BRANDS[r.brand]?.color} ${BRANDS[r.brand]?.text}`}>{r.brand}</span></td>
+                        <td className="px-4 py-2.5"><p className="font-bold text-slate-800 text-xs leading-none">{r.name}</p><p className="text-[9px] text-slate-400 mt-1 truncate">{r.address}</p></td>
+                        <td className="px-4 py-2.5"><p className="text-xs text-slate-600 font-semibold">{r.city}</p></td>
+                        <td className="px-4 py-2.5">
+                          <div className="flex items-center justify-center gap-3">
+                            <div className="flex items-center gap-1" title="Zgłoszenia"><AlertCircle size={10} className="text-red-400" /><span className="text-[10px] font-bold text-slate-600">{tickets.filter(t => t.restaurantId === r.id).length}</span></div>
+                            <div className="flex items-center gap-1" title="Zadania"><CheckSquare size={10} className="text-green-400" /><span className="text-[10px] font-bold text-slate-600">{tasks.filter(t => t.restaurantId === r.id && !t.completed).length}</span></div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-2.5 text-right"><div className="opacity-0 group-hover:opacity-100 transition-opacity"><ChevronRight size={14} className="text-indigo-600 inline-block" /></div></td>
+                      </tr>
+                    ))}
+                    {restaurants.length === 0 && (
+                        <tr><td colSpan="5" className="text-center py-8 text-sm text-slate-400">Brak restauracji w bazie danych. Dodaj pierwszą klikając "Dodaj Lokal".</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        );
+
+        const RestaurantDetailContent = ({ 
+          r, tickets, tasks, notes, docs, historyLogs, activeDetailTab, setActiveDetailTab, setActiveTab, 
+          setIsSettingsOpen, isSettingsOpen, setIsDeleteModalOpen, onEditClick, 
+          onCreateTicket, onEditTicket, onShareTicket, 
+          isNoteModalOpen, setIsNoteModalOpen, newNote, setNewNote, onAddNote, onDeleteNote, onEditNote,
+          onAddTask, onEditTask, onDeleteTask, onToggleTask,
+          isSubmittingAction 
+        }) => {
+          const [report, setReport] = useState('');
+          const [loading, setLoading] = useState(false);
+
+          const generateReport = async () => {
+            setLoading(true);
+            try {
+              const activeTickets = tickets.filter(t => t.restaurantId === r.id && t.status !== 'Zakończone');
+              const openTasks = tasks.filter(t => t.restaurantId === r.id && !t.completed);
+              const q = `Analiza lokalu: ${r.name}. Aktywne usterki: ${activeTickets.length > 0 ? activeTickets.map(t => t.title).join(', ') : 'brak'}. Zadania w toku: ${openTasks.length > 0 ? openTasks.map(t => t.title).join(', ') : 'brak'}. Napisz krótkie (3 zdania) podsumowanie statusu operacyjnego lokalu.`;
+              const result = await callGemini(q, "Jesteś managerem operacyjnym. Podawaj profesjonalne analizy stanu placówek.");
+              setReport(result);
+            } catch (e) {
+              setReport("Błąd generowania raportu.");
+            } finally {
+              setLoading(false);
+            }
+          };
+
+          const counts = {
+            docs: docs.filter(d => d.restaurantId === r.id || d.restaurantId === null).length,
+            tickets: tickets.filter(t => t.restaurantId === r.id).length,
+            tasks: tasks.filter(t => t.restaurantId === r.id).length,
+            notes: notes.filter(n => n.restaurantId === r.id).length
+          };
+
+          return (
+            <div className="space-y-6 animate-in fade-in duration-300">
+              <button onClick={() => setActiveTab('restaurants')} className="text-indigo-600 font-semibold text-sm flex items-center gap-1 hover:underline group">
+                <ChevronRight size={16} className="rotate-180 group-hover:-translate-x-1 transition-transform" /> Powrót do bazy
+              </button>
+              
+              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden">
+                 <div className={`absolute top-0 left-0 bottom-0 w-2 ${BRANDS[r.brand]?.color || 'bg-slate-400'}`} />
+                <div className="flex flex-col md:flex-row justify-between gap-4">
+                  <div className="flex gap-4 items-center">
+                    <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-white text-xl font-black shadow-lg ${BRANDS[r.brand]?.color || 'bg-slate-400'}`}>
+                      {(r.brand && r.brand[0]) || 'R'}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-2xl font-bold text-indigo-950">{r.name}</h2>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${BRANDS[r.brand]?.color || 'bg-slate-400'} text-white`}>
+                          {r.brand}
+                        </span>
+                      </div>
+                      <p className="text-slate-500 flex items-center gap-1 text-sm mt-1 tracking-tight"><MapPin size={14} /> {r.address}, {r.city}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 relative">
+                    <div className="relative">
+                      <button onClick={() => setIsSettingsOpen(!isSettingsOpen)} className={`p-2 rounded-lg transition-colors ${isSettingsOpen ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}><Settings size={20} /></button>
+                      {isSettingsOpen && (
+                        <div className="absolute right-0 mt-3 w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-20 overflow-hidden text-left">
+                          <button onClick={() => setIsDeleteModalOpen(true)} className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 font-semibold transition-colors"><Trash2 size={14} /> Usuń restaurację</button>
+                        </div>
+                      )}
+                    </div>
+                    <button onClick={onEditClick} className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-bold shadow-md hover:bg-indigo-700 transition-all flex items-center gap-2"><Edit size={16} /> Edytuj Lokal</button>
+                  </div>
+                </div>
+
+                <div className="flex gap-8 mt-8 border-b border-slate-100 overflow-x-auto whitespace-nowrap scrollbar-hide text-indigo-950">
+                  <DetailTab label="Dokumentacja" count={counts.docs} active={activeDetailTab === 'docs'} icon={FileText} onClick={() => setActiveDetailTab('docs')} />
+                  <DetailTab label="Zgłoszenia" count={counts.tickets} active={activeDetailTab === 'tickets'} icon={AlertTriangle} onClick={() => setActiveDetailTab('tickets')} />
+                  <DetailTab label="Zadania" count={counts.tasks} active={activeDetailTab === 'tasks'} icon={CheckSquare} onClick={() => setActiveDetailTab('tasks')} />
+                  <DetailTab label="Notatki" count={counts.notes} active={activeDetailTab === 'notes'} icon={StickyNote} onClick={() => setActiveDetailTab('notes')} />
+                  <DetailTab label="Historia" active={activeDetailTab === 'history'} icon={RotateCcw} onClick={() => setActiveDetailTab('history')} />
+                  <DetailTab label="Dane restauracji" active={activeDetailTab === 'info'} icon={Info} onClick={() => setActiveDetailTab('info')} />
+                </div>
+              </div>
+
+              <div className="mt-6">
+                {activeDetailTab === 'docs' && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-in fade-in duration-200">
+                    {docs.filter(d => d.restaurantId === r.id || d.restaurantId === null).map(doc => (<DocItem key={doc.id} title={doc.title} type={doc.type} size={doc.size} />))}
+                    <div className="border-2 border-dashed border-slate-200 rounded-xl flex items-center justify-center p-6 text-slate-400 hover:border-indigo-300 hover:text-indigo-500 transition-all cursor-pointer group">
+                      <div className="text-center group-hover:scale-105 transition-transform"><Plus size={24} className="mx-auto mb-1" /><p className="text-xs font-bold uppercase tracking-widest text-indigo-950/40">Dodaj Dokument</p></div>
+                    </div>
+                  </div>
+                )}
+
+                {activeDetailTab === 'tickets' && (
+                  <div className="space-y-4 animate-in fade-in duration-200">
+                    <div className="flex justify-between items-center px-1">
+                      <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest tracking-tighter text-indigo-950/40">Wykaz aktywnych zgłoszeń</h4>
+                      <button onClick={onCreateTicket} className="bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-indigo-100 transition-colors flex items-center gap-1.5 shadow-sm"><Plus size={14} /> Nowe Zgłoszenie</button>
+                    </div>
+                    {tickets.filter(t => t.restaurantId === r.id).length > 0 ? (
+                      tickets.filter(t => t.restaurantId === r.id).map(t => (
+                        <div key={t.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex justify-between items-center group text-indigo-950">
+                          <div className="flex gap-3 items-start">
+                            <div className={`p-2 rounded-lg ${t.priority === 'Wysoki' ? 'bg-red-50 text-red-600' : 'bg-slate-50 text-slate-500'}`}><AlertTriangle size={18} /></div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                 <p className="text-sm font-bold leading-tight">{t.title}</p>
+                                 <span className={`text-[9px] px-1.5 py-0.5 rounded font-black uppercase tracking-tight ${t.status === 'Zakończone' ? 'bg-green-100 text-green-700' : 'bg-indigo-50 text-indigo-700'}`}>{t.status}</span>
+                              </div>
+                              <p className="text-xs text-slate-500 mt-1 leading-relaxed">{t.description}</p>
+                              <div className="flex gap-4 mt-2 items-center">
+                                <span className={`text-[10px] font-bold uppercase ${t.priority === 'Wysoki' ? 'text-red-600' : 'text-slate-400'}`}>Priorytet: {t.priority}</span>
+                                <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1"><Calendar size={10} /> {t.date}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                            <button onClick={() => onShareTicket(t)} className="p-2 text-slate-400 hover:text-indigo-600 bg-slate-50 rounded-lg transition-colors" title="Skopiuj link"><Share2 size={16} /></button>
+                            <button onClick={() => onEditTicket(t)} className="p-2 text-slate-400 hover:text-indigo-600 bg-slate-50 rounded-lg transition-colors" title="Edytuj"><Edit size={16} /></button>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-12 bg-white rounded-2xl border border-dashed border-slate-200"><p className="text-slate-400 text-sm italic tracking-tight">Brak aktywnych zgłoszeń dla tego lokalu.</p></div>
+                    )}
+                  </div>
+                )}
+
+                {activeDetailTab === 'tasks' && (
+                  <div className="space-y-4 animate-in fade-in duration-200">
+                    <div className="flex justify-between items-center px-1">
+                      <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest tracking-tighter text-indigo-950/40">Zadania dla personelu</h4>
+                      <button onClick={onAddTask} className="bg-green-50 text-green-700 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-green-100 transition-colors flex items-center gap-1.5 shadow-sm"><Plus size={14} /> Nowe Zadanie</button>
+                    </div>
+                    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                       {tasks.filter(t => t.restaurantId === r.id).length > 0 ? (
+                          <div className="divide-y divide-slate-100">
+                            {tasks.filter(t => t.restaurantId === r.id).map(t => (
+                               <div key={t.id} className={`flex items-center justify-between p-4 group transition-colors ${t.completed ? 'bg-slate-50 opacity-75' : 'bg-white hover:bg-slate-50'}`}>
+                                  <div className="flex items-center gap-3">
+                                     <button onClick={() => onToggleTask(t)} className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${t.completed ? 'bg-green-500 border-green-500 text-white' : 'border-slate-300 text-transparent hover:border-green-400'}`}>
+                                        <CheckCircle2 size={14} />
+                                     </button>
+                                     <div>
+                                        <p className={`text-sm font-bold ${t.completed ? 'text-slate-500 line-through' : 'text-indigo-950'}`}>{t.title}</p>
+                                        <p className="text-[10px] text-slate-400 font-medium flex items-center gap-1"><Calendar size={10} /> Termin: {t.deadline}</p>
+                                     </div>
+                                  </div>
+                                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                     <button onClick={() => onEditTask(t)} className="p-1.5 text-slate-400 hover:text-indigo-600 bg-slate-50 rounded-lg transition-colors" title="Edytuj"><Pencil size={14} /></button>
+                                     <button onClick={() => onDeleteTask(t)} className="p-1.5 text-slate-400 hover:text-red-600 bg-slate-50 rounded-lg transition-colors" title="Usuń"><Trash2 size={14} /></button>
+                                  </div>
+                               </div>
+                            ))}
+                          </div>
+                       ) : (
+                          <div className="text-center py-12"><p className="text-slate-400 text-sm italic tracking-tight">Brak zadań. Dodaj nowe zadanie dla lokalu.</p></div>
+                       )}
+                    </div>
+                  </div>
+                )}
+
+                {activeDetailTab === 'notes' && (
+                  <div className="space-y-4 animate-in fade-in duration-200">
+                    <div className="flex justify-between items-center px-1">
+                      <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest text-indigo-900/40 text-indigo-950/40">Twoje Notatki</h4>
+                      <button onClick={() => setIsNoteModalOpen(true)} className="bg-amber-100 text-amber-700 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors hover:bg-amber-200"><Plus size={14} /> Nowa Notatka</button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {notes.filter(n => n.restaurantId === r.id).map(note => (
+                        <div key={note.id} className="bg-amber-50 p-4 rounded-xl border border-amber-100 shadow-sm group relative text-indigo-950">
+                          <div className="flex justify-between items-start mb-2 pr-16"><h5 className="font-bold text-amber-900 text-sm">{note.title}</h5></div>
+                          <div className="absolute top-3 right-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                            <button onClick={() => onEditNote(note)} className="p-1.5 bg-amber-100 text-amber-600 hover:bg-indigo-600 hover:text-white rounded-lg transition-all shadow-sm" title="Edytuj"><Pencil size={12} /></button>
+                            <button onClick={() => onDeleteNote(note)} className="p-1.5 bg-amber-100 text-amber-400 hover:bg-red-600 hover:text-white rounded-lg transition-all shadow-sm" title="Usuń"><Trash2 size={12} /></button>
+                          </div>
+                          <p className="text-xs text-amber-800 leading-relaxed break-words whitespace-pre-wrap">{note.content}</p>
+                        </div>
+                      ))}
+                      {notes.filter(n => n.restaurantId === r.id).length === 0 && (
+                          <div className="col-span-2 text-center py-8"><p className="text-slate-400 text-sm italic">Brak notatek dla tego lokalu.</p></div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {activeDetailTab === 'history' && (
+                  <div className="space-y-4 animate-in fade-in duration-200">
+                     <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest tracking-tighter text-indigo-950/40 px-1">Historia Aktywności (Ostatnie)</h4>
+                     <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+                        {historyLogs.filter(h => h.restaurantId === r.id).length > 0 ? (
+                           <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 before:to-transparent">
+                              {historyLogs.filter(h => h.restaurantId === r.id).sort((a,b) => new Date(b.date) - new Date(a.date)).slice(0, 50).map(log => {
+                                 const getIcon = (type) => {
+                                     if(type==='ticket') return <AlertTriangle size={14} className="text-red-500"/>;
+                                     if(type==='task') return <CheckSquare size={14} className="text-green-500"/>;
+                                     if(type==='note') return <StickyNote size={14} className="text-amber-500"/>;
+                                     return <Store size={14} className="text-indigo-500"/>;
+                                 };
+                                 const parsedDate = new Date(log.date);
+                                 return (
+                                 <div key={log.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white bg-slate-50 text-slate-500 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                                       {getIcon(log.type)}
+                                    </div>
+                                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+                                       <div className="flex items-center justify-between space-x-2 mb-1">
+                                          <div className="font-bold text-slate-800 text-xs">{log.description}</div>
+                                          <time className="font-caveat font-medium text-[10px] text-slate-400">{parsedDate.toLocaleDateString()} {parsedDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</time>
+                                       </div>
+                                    </div>
+                                 </div>
+                              )})}
+                           </div>
+                        ) : (
+                           <div className="text-center py-8"><p className="text-slate-400 text-sm italic">Brak zarejestrowanej aktywności.</p></div>
+                        )}
+                     </div>
+                  </div>
+                )}
+
+                {activeDetailTab === 'info' && (
+                  <div className="bg-white p-8 rounded-2xl border border-slate-200 animate-in fade-in duration-200 shadow-sm">
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-12 text-indigo-950">
+                       <div className="space-y-6">
+                          <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest border-b border-slate-50 pb-2">Podstawowe dane</h4>
+                          <InfoRow icon={Building2} label="ID" value={r.id} />
+                          <InfoRow icon={Store} label="Marka" value={r.brand} />
+                          <InfoRow icon={MapPin} label="Miasto" value={r.city} />
+                          <InfoRow icon={MapPin} label="Adres" value={r.address} />
+                       </div>
+                       <div className="space-y-6">
+                          <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest border-b border-slate-50 pb-2 text-indigo-950/40">Sieć i Kontakt</h4>
+                          <InfoRow icon={Globe} label="IP" value={r.ip || '-'} />
+                          <InfoRow icon={Mail} label="E-mail" value={r.email || '-'} />
+                       </div>
+                     </div>
+                     <div className="mt-12 pt-8 border-t border-slate-100">
+                       <div className="flex items-center justify-between mb-4">
+                         <div className="flex items-center gap-2"><Sparkles size={20} className="text-indigo-600" /><h4 className="text-lg font-black text-indigo-950">AI Manager Report</h4></div>
+                         <button onClick={generateReport} disabled={loading} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 transition-all shadow-md disabled:opacity-50">
+                           {loading ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />} Generuj Raport AI
+                         </button>
+                       </div>
+                       {report ? (
+                         <div className="bg-indigo-50/50 p-6 rounded-2xl border border-indigo-100 animate-in slide-in-from-bottom-2"><div className="text-sm text-indigo-900 leading-relaxed font-medium">{report}</div></div>
+                       ) : (
+                         <div className="text-center py-8 bg-slate-50 border border-dashed border-slate-200 rounded-2xl"><p className="text-slate-400 text-xs italic">Kliknij przycisk, aby AI przeanalizowało stan operacyjny lokalu.</p></div>
+                       )}
+                     </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        };
+
+        const NavItem = ({ icon: IconComponent, label, active, onClick }) => (
+          <button onClick={onClick} className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all group ${active ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-slate-400 hover:bg-indigo-50 hover:text-indigo-600'}`}>
+            <IconComponent size={20} className="shrink-0" />
+            <span className="text-sm font-bold hidden md:block whitespace-nowrap">{label}</span>
+          </button>
+        );
+
+        const StatCard = ({ title, value, icon: IconComponent, color }) => {
+          const colors = { blue: 'text-blue-600 bg-blue-50', red: 'text-red-600 bg-red-50', green: 'text-green-600 bg-green-50', orange: 'text-orange-600 bg-orange-50' };
+          return (
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between text-indigo-950">
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 tracking-tight tracking-tighter leading-none">{title}</p>
+                <p className="text-2xl font-black tracking-tight">{value}</p>
+              </div>
+              <div className={`p-3 rounded-xl ${colors[color]}`}><IconComponent size={24} /></div>
+            </div>
+          );
+        };
+
+        const DetailTab = ({ label, count, active, icon: IconComponent, onClick }) => (
+          <button onClick={onClick} className={`flex items-center gap-2 pb-4 px-1 text-sm font-bold transition-all border-b-2 whitespace-nowrap ${active ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}>
+            <IconComponent size={16} /> {label}
+            {count !== undefined && <span className={`ml-1 text-[10px] px-1.5 py-0.5 rounded-full ${active ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500'}`}>{count}</span>}
+          </button>
+        );
+
+        const DocItem = ({ title, size, type }) => (
+          <div className="bg-white p-4 border border-slate-100 rounded-xl flex items-center gap-4 hover:border-indigo-200 transition-all cursor-pointer shadow-sm group text-indigo-950">
+            <div className={`w-12 h-12 rounded-lg flex items-center justify-center font-black text-[10px] ${type === 'pdf' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>{type ? type.toUpperCase() : 'DOC'}</div>
+            <div className="flex-1 overflow-hidden">
+              <p className="text-xs font-bold truncate">{title}</p><p className="text-[10px] text-slate-400 mt-0.5 tracking-tight tracking-tighter leading-none">{size}</p>
+            </div>
+            <Download size={14} className="text-slate-300 group-hover:text-indigo-600 transition-colors" />
+          </div>
+        );
+
+        const InfoRow = ({ icon: IconComponent, label, value }) => (
+          <div className="flex items-center gap-4">
+            <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400"><IconComponent size={16} /></div>
+            <div className="flex-1">
+              <p className="text-[10px] font-bold text-slate-400 uppercase leading-none mb-1 tracking-tight tracking-tighter">{label}</p>
+              <p className="text-sm font-semibold text-slate-700 break-all leading-tight">{value}</p>
+            </div>
+          </div>
+        );
+
+        // --- SUB-COMPONENTS FOR MODALS ---
+        const RestaurantModal = ({ title, data, setData, onSave, onCancel, isSubmitting }) => (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onCancel} />
+            <div className="bg-white rounded-3xl p-8 w-full max-w-lg relative shadow-2xl animate-in zoom-in duration-200 max-h-[90vh] overflow-y-auto scrollbar-hide text-indigo-950">
+              <h3 className="text-xl font-black mb-6 tracking-tight text-indigo-900">{title}</h3>
+              <form onSubmit={onSave} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="col-span-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nazwa Lokalu</label>
+                    <input required className="w-full mt-1 p-3 bg-slate-50 border-none rounded-xl outline-none text-sm" value={data.name || ''} onChange={e => setData({...data, name: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Marka</label>
+                    <select className="w-full mt-1 p-3 bg-slate-50 border-none rounded-xl outline-none text-sm text-indigo-950" value={data.brand || 'KFC'} onChange={e => setData({...data, brand: e.target.value})}>
+                      {Object.keys(BRANDS).map(b => <option key={b} value={b}>{b}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Miasto</label>
+                    <input required className="w-full mt-1 p-3 bg-slate-50 border-none rounded-xl outline-none text-sm text-indigo-950" value={data.city || ''} onChange={e => setData({...data, city: e.target.value})} />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Dokładny Adres</label>
+                    <input required className="w-full mt-1 p-3 bg-slate-50 border-none rounded-xl outline-none text-sm text-indigo-950" value={data.address || ''} onChange={e => setData({...data, address: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Adres IP</label>
+                    <input className="w-full mt-1 p-3 bg-slate-50 border-none rounded-xl outline-none text-sm text-indigo-950" value={data.ip || ''} onChange={e => setData({...data, ip: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">E-mail</label>
+                    <input type="email" className="w-full mt-1 p-3 bg-slate-50 border-none rounded-xl outline-none text-sm text-indigo-950" value={data.email || ''} onChange={e => setData({...data, email: e.target.value})} />
+                  </div>
+                </div>
+                <div className="flex gap-3 pt-6">
+                  <button type="button" onClick={onCancel} className="flex-1 py-3 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Anuluj</button>
+                  <button type="submit" disabled={isSubmitting} className="flex-1 py-3 text-sm font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 shadow-lg transition-all active:scale-95 disabled:opacity-50 flex justify-center items-center gap-2">
+                    {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : 'Zapisz'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        );
+
+        const TicketModal = ({ title, data, setData, onSave, onCancel, isEdit, isSubmitting }) => {
+          const [aiTip, setAiTip] = useState('');
+          const [loading, setLoading] = useState(false);
+
+          const suggestSolution = async () => {
+            if (!data.title || !data.description) return;
+            setLoading(true);
+            const result = await callGemini(`Zgłoszenie: ${data.title}. Opis: ${data.description}. Zaproponuj 3 konkretne kroki naprawcze dla personelu restauracji.`, "Jesteś ekspertem serwisowym sieci restauracji.");
+            setAiTip(result);
+            setLoading(false);
+          };
+
+          return (
+            <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+              <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onCancel} />
+              <div className="bg-white rounded-3xl p-8 w-full max-w-md relative shadow-2xl animate-in zoom-in duration-200 max-h-[90vh] overflow-y-auto text-indigo-950">
+                <h3 className="text-xl font-black mb-6 tracking-tight text-indigo-900">{title}</h3>
+                <form onSubmit={onSave} className="space-y-4">
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 tracking-wider text-indigo-950/60">Tytuł Zgłoszenia</label>
+                    <input required className="w-full mt-1 p-3 bg-slate-50 border-none rounded-xl outline-none text-sm text-indigo-950" value={data.title || ''} onChange={e => setData({...data, title: e.target.value})} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 tracking-wider text-indigo-950/60">Priorytet</label>
+                      <select className="w-full mt-1 p-3 bg-slate-50 border-none rounded-xl outline-none text-sm font-semibold text-indigo-950" value={data.priority || 'Średni'} onChange={e => setData({...data, priority: e.target.value})}>
+                        <option>Niski</option><option>Średni</option><option>Wysoki</option>
+                      </select>
+                    </div>
+                    {isEdit && (
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 tracking-wider text-indigo-950/60">Status</label>
+                        <select className="w-full mt-1 p-3 bg-slate-50 border-none rounded-xl outline-none text-sm font-bold text-indigo-600" value={data.status || 'Nowe'} onChange={e => setData({...data, status: e.target.value})}>
+                          <option>Nowe</option><option>W realizacji</option><option>Wstrzymane</option><option>Zakończone</option>
+                        </select>
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 tracking-wider text-indigo-950/60">Opis problemu</label>
+                    <textarea rows="4" className="w-full mt-1 p-3 bg-slate-50 border-none rounded-xl outline-none text-sm resize-none leading-relaxed text-indigo-950" value={data.description || ''} onChange={e => setData({...data, description: e.target.value})} />
+                  </div>
+                  
+                  <div className="pt-2">
+                    <button type="button" onClick={suggestSolution} disabled={loading || !data.description} className="flex items-center gap-2 text-xs font-bold text-indigo-600 bg-indigo-50 px-4 py-2 rounded-xl hover:bg-indigo-100 transition-all disabled:opacity-50 shadow-sm">
+                      {loading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />} ✨ Sugeruj rozwiązanie AI
+                    </button>
+                    {aiTip && (<div className="mt-3 p-4 bg-indigo-50/50 border border-indigo-100 rounded-2xl animate-in slide-in-from-top-2"><div className="text-xs text-indigo-900 leading-relaxed whitespace-pre-wrap">{aiTip}</div></div>)}
+                  </div>
+
+                  <div className="flex gap-3 pt-4 border-t border-slate-100">
+                    <button type="button" onClick={onCancel} className="flex-1 py-3 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Anuluj</button>
+                    <button type="submit" disabled={isSubmitting} className="flex-1 py-3 text-sm font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all disabled:opacity-50 flex justify-center items-center gap-2">
+                      {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : (isEdit ? 'Zapisz zmiany' : 'Utwórz')}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          );
+        };
+
+        const TaskModal = ({ title, data, setData, onSave, onCancel, isEdit, isSubmitting }) => (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onCancel} />
+            <div className="bg-white rounded-3xl p-8 w-full max-w-md relative shadow-2xl animate-in zoom-in duration-200 text-indigo-950">
+              <h3 className="text-xl font-black mb-6 tracking-tight text-indigo-900">{title}</h3>
+              <form onSubmit={onSave} className="space-y-4">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 tracking-wider">Tytuł Zadania</label>
+                  <input required className="w-full mt-1 p-3 bg-slate-50 border-none rounded-xl outline-none text-sm text-indigo-950" value={data.title || ''} onChange={e => setData({...data, title: e.target.value})} />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 tracking-wider">Termin wykonania</label>
+                  <input type="date" required className="w-full mt-1 p-3 bg-slate-50 border-none rounded-xl outline-none text-sm text-indigo-950" value={data.deadline || ''} onChange={e => setData({...data, deadline: e.target.value})} />
+                </div>
+                {isEdit && (
+                   <div className="flex items-center gap-3 mt-4 p-3 bg-slate-50 rounded-xl">
+                      <input type="checkbox" id="task-completed" className="w-4 h-4 rounded text-indigo-600" checked={data.completed || false} onChange={e => setData({...data, completed: e.target.checked})} />
+                      <label htmlFor="task-completed" className="text-sm font-bold text-slate-700 cursor-pointer">Oznacz jako wykonane</label>
+                   </div>
+                )}
+                <div className="flex gap-3 pt-6 border-t border-slate-100">
+                  <button type="button" onClick={onCancel} className="flex-1 py-3 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Anuluj</button>
+                  <button type="submit" disabled={isSubmitting} className="flex-1 py-3 text-sm font-bold text-white bg-green-600 rounded-xl hover:bg-green-700 shadow-lg transition-all disabled:opacity-50 flex justify-center items-center gap-2">
+                    {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : 'Zapisz zadanie'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        );
+
+        // ==========================================
+        // GŁÓWNA LOGIKA APLIKACJI - FIREBASE
+        // ==========================================
+
+        const App = () => {
+          const [user, setUser] = useState(null);
+          const [isConnecting, setIsConnecting] = useState(true);
+          const [dbError, setDbError] = useState(null);
+          
+          const [isSubmittingAction, setIsSubmittingAction] = useState(false);
+
+          const [isAuthMode, setIsAuthMode] = useState(true);
+          const [authEmail, setAuthEmail] = useState('');
+          const [authPassword, setAuthPassword] = useState('');
+          const [rememberMe, setRememberMe] = useState(true); // ZAPAMIĘTYWANIE HASŁA
+          const [authErrorLocal, setAuthErrorLocal] = useState('');
+          const [isAuthLoading, setIsAuthLoading] = useState(false);
+
+          const [activeTab, setActiveTab] = useState('dashboard');
+          const [restaurants, setRestaurants] = useState([]);
+          const [tickets, setTickets] = useState([]);
+          const [tasks, setTasks] = useState([]);
+          const [notes, setNotes] = useState([]);
+          const [docs, setDocs] = useState([]);
+          const [historyLogs, setHistoryLogs] = useState([]); // LOGI HISTORII
+          const [searchQuery, setSearchQuery] = useState('');
+          const [toast, setToast] = useState(null);
+          const [toastType, setToastType] = useState('info'); 
+          
+          const [selectedRestaurant, setSelectedRestaurant] = useState(null);
+          const [activeDetailTab, setActiveDetailTab] = useState('docs');
+          
+          const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+          const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+          
+          const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
+          const [isEditNoteModalOpen, setIsEditNoteModalOpen] = useState(false);
+          const [noteToDelete, setNoteToDelete] = useState(null);
+          
+          const [isAddRestaurantModalOpen, setIsAddRestaurantModalOpen] = useState(false);
+          const [isEditRestaurantModalOpen, setIsEditRestaurantModalOpen] = useState(false);
+          
+          const [isAddTicketModalOpen, setIsAddTicketModalOpen] = useState(false);
+          const [isEditTicketModalOpen, setIsEditTicketModalOpen] = useState(false);
+
+          const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
+          const [isEditTaskModalOpen, setIsEditTaskModalOpen] = useState(false);
+          const [taskToDelete, setTaskToDelete] = useState(null);
+          
+          const [newNote, setNewNote] = useState({ title: '', content: '' });
+          const [editNoteData, setEditNoteData] = useState(null);
+          
+          const [newRestaurant, setNewRestaurant] = useState({ name: '', brand: 'KFC', city: '', address: '', ip: '', email: '' });
+          const [editRestaurantData, setEditRestaurantData] = useState(null);
+          
+          const [newTicketData, setNewTicketData] = useState({ title: '', priority: 'Średni', description: '' });
+          const [editTicketData, setEditTicketData] = useState(null);
+
+          const [newTaskData, setNewTaskData] = useState({ title: '', deadline: new Date().toISOString().split('T')[0], completed: false });
+          const [editTaskData, setEditTaskData] = useState(null);
+          
+          const [resSortConfig, setResSortConfig] = useState({ key: 'name', direction: 'asc' });
+          const [ticketSortConfig, setTicketSortConfig] = useState({ key: 'date', direction: 'desc' });
+          const [columnFilters, setColumnFilters] = useState({ brand: '', name: '', city: '' });
+
+          // --- FIREBASE INIT ---
+          useEffect(() => {
+            if (!auth) {
+                setDbError("Brak konfiguracji Firebase.");
+                setIsConnecting(false);
+                return;
+            }
+
+            const unsubscribe = auth.onAuthStateChanged((currentUser) => {
+              setUser(currentUser);
+              setIsConnecting(false);
+            });
+            
+            return () => unsubscribe();
+          }, []);
+
+          // --- FIREBASE LISTENERS ---
+          useEffect(() => {
+            if (!user || !db) return;
+            
+            const uid = user.uid;
+            const resRef = db.collection('artifacts').doc(appId).collection('users').doc(uid).collection('restaurants');
+            const tickRef = db.collection('artifacts').doc(appId).collection('users').doc(uid).collection('tickets');
+            const taskRef = db.collection('artifacts').doc(appId).collection('users').doc(uid).collection('tasks');
+            const noteRef = db.collection('artifacts').doc(appId).collection('users').doc(uid).collection('notes');
+            const histRef = db.collection('artifacts').doc(appId).collection('users').doc(uid).collection('history');
+
+            const handleFirebaseError = (err) => {
+                console.error("Firebase listen error", err);
+                if(err.code === 'permission-denied') showToast("BRAK UPRAWNIEŃ FIRESTORE!", "error");
+            };
+
+            const unsubRes = resRef.onSnapshot(snap => setRestaurants(snap.docs.map(d => ({ id: d.id, ...d.data() }))), handleFirebaseError);
+            const unsubTickets = tickRef.onSnapshot(snap => setTickets(snap.docs.map(d => ({ id: d.id, ...d.data() }))), handleFirebaseError);
+            const unsubTasks = taskRef.onSnapshot(snap => setTasks(snap.docs.map(d => ({ id: d.id, ...d.data() }))), handleFirebaseError);
+            const unsubNotes = noteRef.onSnapshot(snap => setNotes(snap.docs.map(d => ({ id: d.id, ...d.data() }))), handleFirebaseError);
+            const unsubHist = histRef.onSnapshot(snap => setHistoryLogs(snap.docs.map(d => ({ id: d.id, ...d.data() }))), handleFirebaseError);
+
+            return () => { unsubRes(); unsubTickets(); unsubTasks(); unsubNotes(); unsubHist(); };
+          }, [user]);
+
+          // --- LOGOWANIE I HISTORIA ZAPISU ---
+          const logActivity = async (restaurantId, type, description) => {
+             if (!db || !user || !restaurantId) return;
+             try {
+                 await db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('history').add({
+                     restaurantId,
+                     type, // 'ticket', 'note', 'task', 'restaurant'
+                     description,
+                     date: new Date().toISOString()
+                 });
+             } catch(e) { console.error("History log fail", e); }
+          };
+
+          const handleAuthSubmit = async (e) => {
+            e.preventDefault();
+            setIsAuthLoading(true);
+            setAuthErrorLocal('');
+            try {
+              // Ustawienie persystencji (Zapamiętaj mnie)
+              await auth.setPersistence(rememberMe ? firebase.auth.Auth.Persistence.LOCAL : firebase.auth.Auth.Persistence.SESSION);
+              
+              if (isAuthMode) {
+                await auth.signInWithEmailAndPassword(authEmail, authPassword);
+              } else {
+                await auth.createUserWithEmailAndPassword(authEmail, authPassword);
+              }
+            } catch (err) {
+              setAuthErrorLocal(err.message);
+            } finally {
+              setIsAuthLoading(false);
+            }
+          };
+
+          const handleLogout = async () => { try { await auth.signOut(); } catch (err) { console.error(err); } };
+          const showToast = (msg, type = 'info') => { setToast(msg); setToastType(type); setTimeout(() => setToast(null), 5000); };
+          const handleResetFilters = () => { setColumnFilters({ brand: '', name: '', city: '' }); setSearchQuery(''); };
+
+          const getCollRef = (collectionName) => db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection(collectionName);
+          const handleFirebaseWriteError = (err) => {
+              if(err.code === 'permission-denied') showToast("Firebase zablokował zapis!", "error");
+              else showToast("Błąd zapisu: " + err.message, "error");
+          };
+
+          // --- RESTAURACJE ---
+          const handleAddRestaurant = async (e) => {
+            e.preventDefault();
+            if(!db || isSubmittingAction) return;
+            setIsSubmittingAction(true);
+            try {
+               const dataToSave = {
+                 name: newRestaurant.name || '', brand: newRestaurant.brand || 'KFC',
+                 city: newRestaurant.city || '', address: newRestaurant.address || '',
+                 ip: newRestaurant.ip || '', email: newRestaurant.email || ''
+               };
+               const docRef = await getCollRef('restaurants').add(dataToSave);
+               await logActivity(docRef.id, 'restaurant', `Dodano nowy lokal do systemu.`);
+               setNewRestaurant({ name: '', brand: 'KFC', city: '', address: '', ip: '', email: '' });
+               setIsAddRestaurantModalOpen(false);
+               showToast("Restauracja dodana.");
+            } catch (err) { handleFirebaseWriteError(err); } finally { setIsSubmittingAction(false); }
+          };
+
+          const handleUpdateRestaurant = async (e) => {
+            e.preventDefault();
+            if(!db || isSubmittingAction) return;
+            setIsSubmittingAction(true);
+            try {
+               const { id, ...dataToUpdate } = editRestaurantData;
+               await getCollRef('restaurants').doc(id).update(dataToUpdate);
+               await logActivity(id, 'restaurant', `Zaktualizowano dane lokalu.`);
+               setSelectedRestaurant({ id, ...dataToUpdate });
+               setIsEditRestaurantModalOpen(false);
+               showToast("Zmiany zostały zapisane.");
+            } catch (err) { handleFirebaseWriteError(err); } finally { setIsSubmittingAction(false); }
+          };
+
+          const handleDeleteRestaurant = async () => {
+            if (selectedRestaurant && !isSubmittingAction) {
+              setIsSubmittingAction(true);
+              try {
+                await getCollRef('restaurants').doc(selectedRestaurant.id).delete();
+                setIsDeleteModalOpen(false);
+                setSelectedRestaurant(null);
+                setActiveTab('restaurants');
+                showToast("Restauracja została usunięta.");
+              } catch(err) { handleFirebaseWriteError(err); } finally { setIsSubmittingAction(false); }
+            }
+          };
+
+          // --- ZGŁOSZENIA ---
+          const handleAddTicket = async (e) => {
+            e.preventDefault();
+            if(!db || isSubmittingAction) return;
+            setIsSubmittingAction(true);
+            try {
+               const newTicket = {
+                 title: newTicketData.title || '', priority: newTicketData.priority || 'Średni',
+                 description: newTicketData.description || '', restaurantId: selectedRestaurant.id,
+                 status: 'Nowe', date: new Date().toISOString().split('T')[0]
+               };
+               await getCollRef('tickets').add(newTicket);
+               await logActivity(selectedRestaurant.id, 'ticket', `Dodano zgłoszenie: ${newTicket.title}`);
+               setNewTicketData({ title: '', priority: 'Średni', description: '' });
+               setIsAddTicketModalOpen(false);
+               showToast("Dodano nowe zgłoszenie.");
+            } catch (err) { handleFirebaseWriteError(err); } finally { setIsSubmittingAction(false); }
+          };
+
+          const handleUpdateTicket = async (e) => {
+            e.preventDefault();
+            if(!db || isSubmittingAction) return;
+            setIsSubmittingAction(true);
+            try {
+               const { id, ...data } = editTicketData;
+               await getCollRef('tickets').doc(id).update(data);
+               await logActivity(data.restaurantId, 'ticket', `Zaktualizowano zgłoszenie: ${data.title}`);
+               setIsEditTicketModalOpen(false);
+               setEditTicketData(null);
+               showToast("Zgłoszenie zaktualizowane.");
+            } catch(err) { handleFirebaseWriteError(err); } finally { setIsSubmittingAction(false); }
+          };
+
+          // --- NOTATKI ---
+          const handleAddNote = async (e) => {
+            e.preventDefault();
+            if (!newNote.title || !newNote.content || isSubmittingAction) return;
+            setIsSubmittingAction(true);
+            try {
+               const noteToAdd = { title: newNote.title, content: newNote.content, restaurantId: selectedRestaurant?.id || null };
+               await getCollRef('notes').add(noteToAdd);
+               await logActivity(selectedRestaurant.id, 'note', `Utworzono notatkę: ${newNote.title}`);
+               setNewNote({ title: '', content: '' });
+               setIsNoteModalOpen(false);
+               showToast("Notatka dodana.");
+            } catch(err) { handleFirebaseWriteError(err); } finally { setIsSubmittingAction(false); }
+          };
+
+          const handleUpdateNote = async (e) => {
+            e.preventDefault();
+            if (!editNoteData.title || !editNoteData.content || isSubmittingAction) return;
+            setIsSubmittingAction(true);
+            try {
+               const { id, ...data } = editNoteData;
+               await getCollRef('notes').doc(id).update(data);
+               await logActivity(data.restaurantId, 'note', `Edytowano notatkę: ${data.title}`);
+               setIsEditNoteModalOpen(false);
+               setEditNoteData(null);
+            } catch(err) { handleFirebaseWriteError(err); } finally { setIsSubmittingAction(false); }
+          };
+
+          const handleConfirmDeleteNote = async () => {
+            if (noteToDelete && !isSubmittingAction) {
+               setIsSubmittingAction(true);
+               try {
+                  await getCollRef('notes').doc(noteToDelete.id).delete();
+                  await logActivity(noteToDelete.restaurantId, 'note', `Usunięto notatkę: ${noteToDelete.title}`);
+                  setNoteToDelete(null);
+                  showToast("Notatka usunięta.");
+               } catch(err) { handleFirebaseWriteError(err); } finally { setIsSubmittingAction(false); }
+            }
+          };
+
+          // --- ZADANIA ---
+          const handleAddTask = async (e) => {
+             e.preventDefault();
+             if(!db || isSubmittingAction) return;
+             setIsSubmittingAction(true);
+             try {
+                const taskToSave = {
+                   title: newTaskData.title, deadline: newTaskData.deadline, 
+                   completed: false, restaurantId: selectedRestaurant.id
+                };
+                await getCollRef('tasks').add(taskToSave);
+                await logActivity(selectedRestaurant.id, 'task', `Przydzielono nowe zadanie: ${taskToSave.title}`);
+                setNewTaskData({ title: '', deadline: new Date().toISOString().split('T')[0], completed: false });
+                setIsAddTaskModalOpen(false);
+                showToast("Dodano zadanie.");
+             } catch(err) { handleFirebaseWriteError(err); } finally { setIsSubmittingAction(false); }
+          };
+
+          const handleUpdateTask = async (e) => {
+             e.preventDefault();
+             if(!db || isSubmittingAction) return;
+             setIsSubmittingAction(true);
+             try {
+                const { id, ...data } = editTaskData;
+                await getCollRef('tasks').doc(id).update(data);
+                await logActivity(data.restaurantId, 'task', `Zaktualizowano zadanie: ${data.title}`);
+                setIsEditTaskModalOpen(false);
+                setEditTaskData(null);
+                showToast("Zadanie zapisane.");
+             } catch(err) { handleFirebaseWriteError(err); } finally { setIsSubmittingAction(false); }
+          };
+
+          const handleToggleTask = async (task) => {
+             if(!db) return;
+             try {
+                await getCollRef('tasks').doc(task.id).update({ completed: !task.completed });
+                await logActivity(task.restaurantId, 'task', `Oznaczono zadanie "${task.title}" jako ${!task.completed ? 'WYKONANE' : 'NIEWYKONANE'}.`);
+             } catch(err) { handleFirebaseWriteError(err); }
+          };
+          
+          const handleConfirmDeleteTask = async () => {
+             if (taskToDelete && !isSubmittingAction) {
+                setIsSubmittingAction(true);
+                try {
+                   await getCollRef('tasks').doc(taskToDelete.id).delete();
+                   await logActivity(taskToDelete.restaurantId, 'task', `Usunięto zadanie: ${taskToDelete.title}`);
+                   setTaskToDelete(null);
+                   showToast("Zadanie usunięte.");
+                } catch(err) { handleFirebaseWriteError(err); } finally { setIsSubmittingAction(false); }
+             }
+          };
+
+          // --- MEMOIZED DATA ---
+          const filteredAndSortedRestaurants = useMemo(() => {
+            let sortableItems = [...restaurants];
+            if (searchQuery) {
+              sortableItems = sortableItems.filter(r => 
+                (r.name && r.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                (r.city && r.city.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                (r.brand && r.brand.toLowerCase().includes(searchQuery.toLowerCase()))
+              );
+            }
+            sortableItems = sortableItems.filter(r => {
+              const matchBrand = (r.brand || '').toLowerCase().includes(columnFilters.brand.toLowerCase());
+              const matchName = (r.name || '').toLowerCase().includes(columnFilters.name.toLowerCase());
+              const matchCity = (r.city || '').toLowerCase().includes(columnFilters.city.toLowerCase());
+              return matchBrand && matchName && matchCity;
+            });
+            sortableItems.sort((a, b) => {
+              let valA = a[resSortConfig.key] || ''; let valB = b[resSortConfig.key] || '';
+              if (resSortConfig.key === 'tickets') { valA = tickets.filter(t => t.restaurantId === a.id).length; valB = tickets.filter(t => t.restaurantId === b.id).length; }
+              if (valA < valB) return resSortConfig.direction === 'asc' ? -1 : 1;
+              if (valA > valB) return resSortConfig.direction === 'asc' ? 1 : -1;
+              return 0;
+            });
+            return sortableItems;
+          }, [restaurants, resSortConfig, searchQuery, columnFilters, tickets]);
+
+          const sortedTickets = useMemo(() => {
+            const items = tickets.map(t => ({ ...t, restaurantName: restaurants.find(r => r.id === t.restaurantId)?.name || '' }));
+            items.sort((a, b) => {
+              const valA = a[ticketSortConfig.key] || ''; const valB = b[ticketSortConfig.key] || '';
+              if (valA < valB) return ticketSortConfig.direction === 'asc' ? -1 : 1;
+              if (valA > valB) return ticketSortConfig.direction === 'asc' ? 1 : -1;
+              return 0;
+            });
+            return items;
+          }, [tickets, ticketSortConfig, restaurants]);
+
+          // --- WIDOK LOGOWANIA ---
+          if (isConnecting) {
+             return (
+               <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center text-indigo-600 space-y-4">
+                  <Loader2 size={40} className="animate-spin" />
+                  <p className="font-bold uppercase tracking-widest text-sm text-indigo-950/50">Łączenie z bazą danych...</p>
+               </div>
+             );
+          }
+
+          if (!user) {
+             return (
+               <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+                 <div className="w-full max-w-md bg-white rounded-3xl shadow-xl border border-slate-100 p-8 text-indigo-950 animate-in fade-in zoom-in-95 duration-300">
+                    <div className="flex justify-center mb-6">
+                      <div className="w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-indigo-100">
+                        <BarChart3 size={32} />
+                      </div>
+                    </div>
+                    <h2 className="text-2xl font-black text-center tracking-tight mb-2">
+                      {isAuthMode ? 'Witaj ponownie' : 'Utwórz konto'}
+                    </h2>
+                    <p className="text-center text-sm text-slate-500 mb-8">
+                      {isAuthMode ? 'Zaloguj się, aby zarządzać siecią' : 'Zarejestruj się jako administrator'}
+                    </p>
+
+                    {authErrorLocal && (
+                      <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-xl text-red-600 text-xs font-bold flex flex-col gap-2 leading-relaxed text-left shadow-sm">
+                        <div className="flex items-center gap-2 text-sm"><AlertTriangle size={18} className="shrink-0" /> Wykryto problem</div>
+                        <p>{authErrorLocal}</p>
+                      </div>
+                    )}
+
+                    <form onSubmit={handleAuthSubmit} className="space-y-4">
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">E-mail</label>
+                        <input type="email" required className="w-full mt-1 p-3 bg-slate-50 border-none rounded-xl outline-none text-sm focus:ring-2 focus:ring-indigo-100 transition-all text-indigo-950" value={authEmail} onChange={e => setAuthEmail(e.target.value)} />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Hasło</label>
+                        <input type="password" required minLength="6" className="w-full mt-1 p-3 bg-slate-50 border-none rounded-xl outline-none text-sm focus:ring-2 focus:ring-indigo-100 transition-all text-indigo-950" value={authPassword} onChange={e => setAuthPassword(e.target.value)} />
+                      </div>
+                      
+                      <div className="flex items-center gap-2 mt-2 px-1">
+                         <input type="checkbox" id="remember" className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} />
+                         <label htmlFor="remember" className="text-xs font-semibold text-slate-600 cursor-pointer">Zapamiętaj mnie na tym urządzeniu</label>
+                      </div>
+
+                      <button type="submit" disabled={isAuthLoading} className="w-full py-3 mt-4 text-sm font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2">
+                        {isAuthLoading ? <Loader2 size={16} className="animate-spin" /> : (isAuthMode ? 'Zaloguj się' : 'Zarejestruj się')}
+                      </button>
+                    </form>
+
+                    <div className="mt-6 text-center">
+                      <button onClick={() => { setIsAuthMode(!isAuthMode); setAuthErrorLocal(''); }} className="text-xs font-semibold text-slate-500 hover:text-indigo-600 transition-colors">
+                        {isAuthMode ? 'Nie masz konta? Kliknij, aby się zarejestrować.' : 'Masz już konto? Zaloguj się.'}
+                      </button>
+                    </div>
+                 </div>
+               </div>
+             );
+          }
+
+          // GŁÓWNA APLIKACJA
+          return (
+            <div className="min-h-screen bg-slate-50 flex font-sans text-slate-900 overflow-hidden text-indigo-950">
+              <aside className="w-20 md:w-64 bg-white border-r border-slate-200 flex flex-col transition-all shrink-0 relative z-10">
+                <div className="p-6 flex items-center gap-3">
+                  <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shrink-0 shadow-lg shadow-indigo-100"><BarChart3 size={24} /></div>
+                  <span className="font-black text-xl tracking-tighter hidden md:block text-indigo-950">RESTAURANT<span className="text-indigo-600">HUB</span></span>
+                </div>
+                <nav className="flex-1 px-4 space-y-2 mt-4 overflow-y-auto">
+                  <NavItem icon={LayoutDashboard} label="Dashboard" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
+                  <NavItem icon={Store} label="Restauracje" active={activeTab === 'restaurants' || activeTab === 'details'} onClick={() => setActiveTab('restaurants')} />
+                  <NavItem icon={AlertTriangle} label="Zgłoszenia" active={activeTab === 'all_tickets'} onClick={() => setActiveTab('all_tickets')} />
+                  <NavItem icon={CheckSquare} label="Zadania i Plany" active={activeTab === 'tasks'} onClick={() => setActiveTab('tasks')} />
+                  <NavItem icon={BookOpen} label="Dokumentacja" active={activeTab === 'docs'} onClick={() => setActiveTab('docs')} />
+                  <NavItem icon={StickyNote} label="Notatki" active={activeTab === 'notes'} onClick={() => setActiveTab('notes')} />
+                </nav>
+                <div className="p-4 mt-auto border-t border-slate-100 flex flex-col items-center justify-center">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center"><span className="hidden md:inline">Wersja </span>{APP_VERSION}</p>
+                </div>
+              </aside>
+
+              <main className="flex-1 flex flex-col h-screen overflow-hidden">
+                <header className="h-16 bg-white border-b border-slate-200 px-8 flex items-center justify-between shrink-0">
+                  <div className="relative w-96 hidden lg:block">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
+                    <input type="text" placeholder="Wyszukiwanie globalne..." className="w-full bg-slate-50 border-none rounded-xl pl-10 pr-4 py-2 text-sm outline-none focus:ring-1 focus:ring-indigo-100 transition-all text-indigo-950" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <button className="p-2 text-slate-400 hover:text-indigo-600 transition-colors relative">
+                      <AlertCircle size={20} />
+                      {tickets.length > 0 && <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>}
+                    </button>
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-[10px] font-black uppercase" title={user.email}>{user.email ? user.email.slice(0, 2) : 'A'}</div>
+                      <button onClick={handleLogout} className="p-2 text-slate-400 hover:text-red-500 bg-slate-50 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2 text-xs font-bold"><LogOut size={16} /> <span className="hidden lg:block">Wyloguj</span></button>
+                    </div>
+                  </div>
+                </header>
+
+                <div className="flex-1 overflow-y-auto p-8 bg-[#fdfdfe] relative">
+                  {activeTab === 'dashboard' && <DashboardView restaurants={restaurants} tickets={tickets} tasks={tasks} notes={notes} onSelectTicket={(r) => { setSelectedRestaurant(r); setActiveDetailTab('tickets'); setActiveTab('details'); }} />}
+                  
+                  {activeTab === 'restaurants' && (
+                    <RestaurantListView 
+                      restaurants={filteredAndSortedRestaurants} tickets={tickets} tasks={tasks}
+                      onAddClick={() => setIsAddRestaurantModalOpen(true)}
+                      onSelect={(r) => { setSelectedRestaurant(r); setActiveTab('details'); }}
+                      sortConfig={resSortConfig}
+                      onRequestSort={(key) => { let dir = 'asc'; if (resSortConfig.key === key && resSortConfig.direction === 'asc') dir = 'desc'; setResSortConfig({ key, direction: dir }); }}
+                      columnFilters={columnFilters} onFilterChange={(key, val) => setColumnFilters(prev => ({ ...prev, [key]: val }))}
+                      onResetFilters={handleResetFilters}
+                    />
+                  )}
+
+                  {activeTab === 'details' && selectedRestaurant && (
+                    <RestaurantDetailContent 
+                      r={selectedRestaurant} tickets={tickets} tasks={tasks} notes={notes} docs={docs} historyLogs={historyLogs}
+                      activeDetailTab={activeDetailTab} setActiveDetailTab={setActiveDetailTab} setActiveTab={setActiveTab}
+                      setIsSettingsOpen={setIsSettingsOpen} isSettingsOpen={isSettingsOpen} setIsDeleteModalOpen={setIsDeleteModalOpen}
+                      onEditClick={() => { setEditRestaurantData(selectedRestaurant); setIsEditRestaurantModalOpen(true); }}
+                      onCreateTicket={() => setIsAddTicketModalOpen(true)} onEditTicket={(ticket) => { setEditTicketData(ticket); setIsEditTicketModalOpen(true); }}
+                      onShareTicket={() => showToast("Udostępnianie działa tylko na serwerze")}
+                      isNoteModalOpen={isNoteModalOpen} setIsNoteModalOpen={setIsNoteModalOpen} newNote={newNote} setNewNote={setNewNote}
+                      onAddNote={handleAddNote} onDeleteNote={(note) => setNoteToDelete(note)} onEditNote={(note) => { setEditNoteData(note); setIsEditNoteModalOpen(true); }}
+                      onAddTask={() => setIsAddTaskModalOpen(true)} onEditTask={(task) => { setEditTaskData(task); setIsEditTaskModalOpen(true); }} 
+                      onDeleteTask={(task) => setTaskToDelete(task)} onToggleTask={handleToggleTask}
+                      isSubmittingAction={isSubmittingAction}
+                    />
+                  )}
+
+                  {activeTab === 'all_tickets' && (
+                    <AllTicketsView 
+                      tickets={sortedTickets} restaurants={restaurants} 
+                      onEditTicket={(ticket) => { setEditTicketData(ticket); setIsEditTicketModalOpen(true); }}
+                      onShareTicket={() => showToast("Udostępnianie działa tylko na serwerze")}
+                      onGoToRestaurant={(r) => { setSelectedRestaurant(r); setActiveDetailTab('tickets'); setActiveTab('details'); }}
+                      sortConfig={ticketSortConfig}
+                      onRequestSort={(key) => { let dir = 'asc'; if (ticketSortConfig.key === key && ticketSortConfig.direction === 'asc') dir = 'desc'; setTicketSortConfig({ key, direction: dir }); }}
+                    />
+                  )}
+                  
+                  {['tasks', 'docs', 'notes'].includes(activeTab) && (
+                     <div className="flex flex-col items-center justify-center h-full text-center">
+                        <div className="p-12 bg-white border border-slate-100 rounded-3xl shadow-xl max-w-sm">
+                          <LayoutDashboard size={48} className="mx-auto mb-4 text-indigo-100" />
+                          <h3 className="font-black text-xl mb-2 text-slate-800 uppercase tracking-tighter text-indigo-900">Sekcja ogólna</h3>
+                          <p className="text-slate-500 text-sm leading-relaxed">Ta zakładka wyświetla dane zagregowane. Aby zarządzać konkretnym punktem, przejdź do Restauracji.</p>
+                          <button onClick={() => setActiveTab('restaurants')} className="mt-8 w-full py-3 bg-indigo-600 text-white rounded-xl font-bold transition-all hover:bg-indigo-700 active:scale-95 shadow-lg shadow-indigo-100">Zobacz Restauracje</button>
+                        </div>
+                     </div>
+                  )}
+
+                  {toast && (
+                    <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[200] animate-in slide-in-from-bottom-4 fade-in duration-300">
+                       <div className={`px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 border ${toastType === 'error' ? 'bg-red-600 text-white border-red-800' : 'bg-indigo-950 text-white border-indigo-800/50'}`}>
+                         {toastType === 'error' ? <AlertTriangle size={16} className="text-white" /> : <Info size={16} className="text-indigo-400" />}
+                         <span className="text-sm font-bold tracking-tight">{toast}</span>
+                       </div>
+                    </div>
+                  )}
+                </div>
+              </main>
+
+              {/* MODALS */}
+              {isAddRestaurantModalOpen && <RestaurantModal title="Dodaj Nową Restaurację" data={newRestaurant} setData={setNewRestaurant} onSave={handleAddRestaurant} onCancel={() => setIsAddRestaurantModalOpen(false)} isSubmitting={isSubmittingAction} />}
+              {isEditRestaurantModalOpen && <RestaurantModal title="Edytuj Dane Restauracji" data={editRestaurantData} setData={setEditRestaurantData} onSave={handleUpdateRestaurant} onCancel={() => setIsEditRestaurantModalOpen(false)} isSubmitting={isSubmittingAction} />}
+              
+              {isAddTicketModalOpen && <TicketModal title="Nowe Zgłoszenie Serwisowe" data={newTicketData} setData={setNewTicketData} onSave={handleAddTicket} onCancel={() => setIsAddTicketModalOpen(false)} isEdit={false} isSubmitting={isSubmittingAction} />}
+              {isEditTicketModalOpen && editTicketData && <TicketModal title="Edytuj Zgłoszenie" data={editTicketData} setData={setEditTicketData} onSave={handleUpdateTicket} onCancel={() => setIsEditTicketModalOpen(false)} isEdit={true} isSubmitting={isSubmittingAction} />}
+
+              {isAddTaskModalOpen && <TaskModal title="Dodaj nowe zadanie" data={newTaskData} setData={setNewTaskData} onSave={handleAddTask} onCancel={() => setIsAddTaskModalOpen(false)} isEdit={false} isSubmitting={isSubmittingAction} />}
+              {isEditTaskModalOpen && editTaskData && <TaskModal title="Edytuj zadanie" data={editTaskData} setData={setEditTaskData} onSave={handleUpdateTask} onCancel={() => setIsEditTaskModalOpen(false)} isEdit={true} isSubmitting={isSubmittingAction} />}
+
+              {isDeleteModalOpen && (
+                <div className="fixed inset-0 z-[130] flex items-center justify-center p-4">
+                  <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => !isSubmittingAction && setIsDeleteModalOpen(false)} />
+                  <div className="bg-white rounded-3xl p-8 w-full max-w-sm relative shadow-2xl animate-in zoom-in duration-200 text-center text-indigo-950">
+                    <div className="w-16 h-16 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center mx-auto mb-4"><Trash2 size={32} /></div>
+                    <h3 className="text-lg font-black mb-2 tracking-tight">Usuwanie lokalu</h3>
+                    <p className="text-sm text-slate-500 mb-8 leading-relaxed">Czy na pewno chcesz usunąć tę restaurację z bazy?</p>
+                    <div className="flex gap-3">
+                      <button onClick={() => setIsDeleteModalOpen(false)} disabled={isSubmittingAction} className="flex-1 py-3 text-xs font-bold text-slate-400 hover:bg-slate-50 rounded-xl transition-colors uppercase tracking-widest disabled:opacity-50">Anuluj</button>
+                      <button onClick={handleDeleteRestaurant} disabled={isSubmittingAction} className="flex-1 py-3 text-xs font-bold text-white bg-red-600 rounded-xl hover:bg-red-700 transition-colors uppercase tracking-widest disabled:opacity-50 flex justify-center items-center">
+                        {isSubmittingAction ? <Loader2 size={16} className="animate-spin" /> : 'Usuń lokal'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {taskToDelete && (
+                <div className="fixed inset-0 z-[140] flex items-center justify-center p-4">
+                  <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => !isSubmittingAction && setTaskToDelete(null)} />
+                  <div className="bg-white rounded-3xl p-8 w-full max-w-sm relative shadow-2xl animate-in zoom-in duration-200 text-center text-indigo-950">
+                    <div className="w-16 h-16 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center mx-auto mb-4"><Trash2 size={32} /></div>
+                    <h3 className="text-lg font-black mb-2 tracking-tight">Usuń zadanie</h3>
+                    <p className="text-sm text-slate-500 mb-8 leading-relaxed text-center">Czy na pewno chcesz trwale usunąć to zadanie?</p>
+                    <div className="flex gap-3">
+                      <button onClick={() => setTaskToDelete(null)} disabled={isSubmittingAction} className="flex-1 py-3 text-xs font-bold text-slate-400 hover:bg-slate-50 rounded-xl transition-colors uppercase tracking-wider disabled:opacity-50">Anuluj</button>
+                      <button onClick={handleConfirmDeleteTask} disabled={isSubmittingAction} className="flex-1 py-3 text-xs font-bold text-white bg-red-600 rounded-xl hover:bg-red-700 transition-colors uppercase tracking-wider disabled:opacity-50 flex justify-center items-center">
+                         {isSubmittingAction ? <Loader2 size={16} className="animate-spin" /> : 'Usuń'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {isNoteModalOpen && (
+                <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
+                  <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => !isSubmittingAction && setIsNoteModalOpen(false)} />
+                  <div className="bg-white rounded-3xl p-8 w-full max-w-md relative shadow-2xl animate-in zoom-in duration-200 text-indigo-950">
+                    <h3 className="text-xl font-black mb-6 tracking-tight text-indigo-900">Nowa notatka</h3>
+                    <form onSubmit={handleAddNote} className="space-y-4">
+                      <div><label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Tytuł</label><input required className="w-full mt-1 p-3 bg-slate-50 border-none rounded-xl outline-none text-sm text-indigo-950" value={newNote.title} onChange={e => setNewNote({...newNote, title: e.target.value})} /></div>
+                      <div><label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Treść</label><textarea required rows="5" className="w-full mt-1 p-3 bg-slate-50 border-none rounded-xl outline-none text-sm resize-none text-indigo-950" value={newNote.content} onChange={e => setNewNote({...newNote, content: e.target.value})} /></div>
+                      <div className="flex gap-3 pt-4">
+                        <button type="button" onClick={() => setIsNoteModalOpen(false)} disabled={isSubmittingAction} className="flex-1 py-3 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">Anuluj</button>
+                        <button type="submit" disabled={isSubmittingAction} className="flex-1 py-3 text-sm font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all disabled:opacity-50 flex justify-center items-center gap-2">
+                           {isSubmittingAction ? <Loader2 size={16} className="animate-spin" /> : 'Zapisz'}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
+
+              {isEditNoteModalOpen && editNoteData && (
+                <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
+                  <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => !isSubmittingAction && setIsEditNoteModalOpen(false)} />
+                  <div className="bg-white rounded-3xl p-8 w-full max-w-md relative shadow-2xl animate-in zoom-in duration-200 text-indigo-950">
+                    <h3 className="text-xl font-black mb-6 tracking-tight text-indigo-900">Edytuj notatkę</h3>
+                    <form onSubmit={handleUpdateNote} className="space-y-4">
+                      <div><label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Tytuł</label><input required className="w-full mt-1 p-3 bg-slate-50 border-none rounded-xl outline-none text-sm text-indigo-950" value={editNoteData.title} onChange={e => setEditNoteData({...editNoteData, title: e.target.value})} /></div>
+                      <div><label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Treść</label><textarea required rows="5" className="w-full mt-1 p-3 bg-slate-50 border-none rounded-xl outline-none text-sm resize-none text-indigo-950" value={editNoteData.content} onChange={e => setEditNoteData({...editNoteData, content: e.target.value})} /></div>
+                      <div className="flex gap-3 pt-4">
+                        <button type="button" onClick={() => setIsEditNoteModalOpen(false)} disabled={isSubmittingAction} className="flex-1 py-3 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">Anuluj</button>
+                        <button type="submit" disabled={isSubmittingAction} className="flex-1 py-3 text-sm font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all disabled:opacity-50 flex justify-center items-center gap-2">
+                           {isSubmittingAction ? <Loader2 size={16} className="animate-spin" /> : 'Zapisz zmiany'}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
+
+              {noteToDelete && (
+                <div className="fixed inset-0 z-[140] flex items-center justify-center p-4">
+                  <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => !isSubmittingAction && setNoteToDelete(null)} />
+                  <div className="bg-white rounded-3xl p-8 w-full max-w-sm relative shadow-2xl animate-in zoom-in duration-200 text-center text-indigo-950">
+                    <div className="w-16 h-16 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center mx-auto mb-4"><Trash2 size={32} /></div>
+                    <h3 className="text-lg font-black mb-2 tracking-tight">Usuń notatkę</h3>
+                    <p className="text-sm text-slate-500 mb-8 leading-relaxed text-center">Czy na pewno chcesz usunąć tę notatkę?</p>
+                    <div className="flex gap-3">
+                      <button onClick={() => setNoteToDelete(null)} disabled={isSubmittingAction} className="flex-1 py-3 text-xs font-bold text-slate-400 hover:bg-slate-50 rounded-xl transition-colors uppercase tracking-wider disabled:opacity-50">Anuluj</button>
+                      <button onClick={handleConfirmDeleteNote} disabled={isSubmittingAction} className="flex-1 py-3 text-xs font-bold text-white bg-red-600 rounded-xl hover:bg-red-700 transition-colors uppercase tracking-wider disabled:opacity-50 flex justify-center items-center">
+                         {isSubmittingAction ? <Loader2 size={16} className="animate-spin" /> : 'Usuń'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
