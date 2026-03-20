@@ -25,6 +25,9 @@
         .scrollbar-hide::-webkit-scrollbar { display: none; }
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
+    
+    <!-- DODAJ TEN PLIK U SIEBIE: Tutaj ładujemy konfigurację z osobnego pliku config.js, aby nie wysyłać klucza na GitHuba -->
+    <!-- <script src="config.js"></script> -->
 </head>
 <body class="bg-slate-50 overflow-hidden">
     <div id="root"></div>
@@ -35,13 +38,15 @@
         // ==========================================
         // WERSJA APLIKACJI
         // ==========================================
-        const APP_VERSION = "0.3.0";
+        const APP_VERSION = "0.3.1";
 
         // ==========================================
         // KONFIGURACJA FIREBASE
         // ==========================================
-        const MY_FIREBASE_CONFIG = {
-            apiKey: "AIzaSyB6fu4NDmp-aUMkLWRQdiRPM18jG3Esj7o",
+        // Pobieramy konfigurację z obiektu window (zdefiniowanego w config.js) 
+        // LUB używamy wbudowanej (do testów w Canvas)
+        const MY_FIREBASE_CONFIG = window.FIREBASE_CONFIG || {
+            apiKey: "AIzaSyB6fu4NDmp-aUMkLWRQdiRPM18jG3Esj7o", // WAŻNE: Dodaj ograniczenia HTTP Referrer w Google Cloud Console!
             authDomain: "hvac-65786.firebaseapp.com",
             databaseURL: "https://hvac-65786-default-rtdb.europe-west1.firebasedatabase.app/",
             projectId: "hvac-65786",
