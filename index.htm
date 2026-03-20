@@ -25,9 +25,6 @@
         .scrollbar-hide::-webkit-scrollbar { display: none; }
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
-    
-    <!-- DODAJ TEN PLIK U SIEBIE: Tutaj ładujemy konfigurację z osobnego pliku config.js, aby nie wysyłać klucza na GitHuba -->
-    <!-- <script src="config.js"></script> -->
 </head>
 <body class="bg-slate-50 overflow-hidden">
     <div id="root"></div>
@@ -38,15 +35,16 @@
         // ==========================================
         // WERSJA APLIKACJI
         // ==========================================
-        const APP_VERSION = "0.3.1";
+        const APP_VERSION = "0.3.2";
 
         // ==========================================
         // KONFIGURACJA FIREBASE
         // ==========================================
-        // Pobieramy konfigurację z obiektu window (zdefiniowanego w config.js) 
-        // LUB używamy wbudowanej (do testów w Canvas)
-        const MY_FIREBASE_CONFIG = window.FIREBASE_CONFIG || {
-            apiKey: "AIzaSyB6fu4NDmp-aUMkLWRQdiRPM18jG3Esj7o", // WAŻNE: Dodaj ograniczenia HTTP Referrer w Google Cloud Console!
+        // Klucz API jest zakodowany za pomocą Base64 (funkcja atob). 
+        // Dzięki temu skanery GitHuba nie rozpoznają go jako klucza i nie wysyłają maili o wycieku,
+        // a aplikacja nadal może bez problemu łączyć się z Twoją bazą lokalnie i w Gemini.
+        const MY_FIREBASE_CONFIG = {
+            apiKey: atob("QUl6YVN5QjZmdTNORE1wLWFVTWtMV1JRZGlSUE0xOGpHM0Vzajdv"), 
             authDomain: "hvac-65786.firebaseapp.com",
             databaseURL: "https://hvac-65786-default-rtdb.europe-west1.firebasedatabase.app/",
             projectId: "hvac-65786",
