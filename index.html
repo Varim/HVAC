@@ -18,6 +18,7 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap');
@@ -32,7 +33,7 @@
     <script type="text/babel">
         const { useState, useMemo, useEffect, memo } = React;
 
-        const APP_VERSION = "0.3.5 (Zoptymalizowana)";
+        const APP_VERSION = "1.4.0 (Optymalizacja & Multi-Upload)";
 
         // ==========================================
         // KONFIGURACJA FIREBASE
@@ -48,7 +49,7 @@
 };
         const appId = "local-restaurant-hub";
 
-        let db, auth, rtdb;
+        let db, auth, rtdb, storage;
         try {
              if (firebaseConfig && !firebase.apps.length) {
                 firebase.initializeApp(firebaseConfig);
@@ -57,13 +58,14 @@
                 db = firebase.firestore();
                 auth = firebase.auth();
                 rtdb = firebase.database();
+                storage = firebase.storage();
             }
         } catch (error) {
             console.error("Błąd inicjalizacji Firebase:", error);
         }
 
         // ==========================================
-        // SYSTEM IKON (Zoptymalizowany używając React.memo)
+        // SYSTEM IKON
         // ==========================================
         const Svg = memo(({ size = 24, className = "", children }) => (
             <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -78,6 +80,7 @@
         const AlertCircle = memo((p) => <Svg {...p}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></Svg>);
         const Trash2 = memo((p) => <Svg {...p}><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></Svg>);
         const ChevronRight = memo((p) => <Svg {...p}><polyline points="9 18 15 12 9 6"/></Svg>);
+        const ChevronLeft = memo((p) => <Svg {...p}><polyline points="15 18 9 12 15 6"/></Svg>);
         const Store = memo((p) => <Svg {...p}><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></Svg>);
         const Calendar = memo((p) => <Svg {...p}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></Svg>);
         const AlertTriangle = memo((p) => <Svg {...p}><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></Svg>);
@@ -89,14 +92,12 @@
         const MapPin = memo((p) => <Svg {...p}><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></Svg>);
         const Settings = memo((p) => <Svg {...p}><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></Svg>);
         const FileText = memo((p) => <Svg {...p}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></Svg>);
+        const ImageIcon = memo((p) => <Svg {...p}><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></Svg>);
         const CheckSquare = memo((p) => <Svg {...p}><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></Svg>);
         const BarChart3 = memo((p) => <Svg {...p}><path d="M3 3v18h18"/><rect x="7" y="10" width="4" height="7"/><rect x="15" y="4" width="4" height="13"/></Svg>);
-        const MoreVertical = memo((p) => <Svg {...p}><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></Svg>);
         const Download = memo((p) => <Svg {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></Svg>);
         const ExternalLink = memo((p) => <Svg {...p}><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></Svg>);
-        const Filter = memo((p) => <Svg {...p}><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></Svg>);
         const ArrowUpDown = memo((p) => <Svg {...p}><path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/></Svg>);
-        const AlertSquare = memo((p) => <Svg {...p}><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></Svg>);
         const Save = memo((p) => <Svg {...p}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></Svg>);
         const Info = memo((p) => <Svg {...p}><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></Svg>);
         const Building2 = memo((p) => <Svg {...p}><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></Svg>);
@@ -105,7 +106,7 @@
         const Edit = memo((p) => <Svg {...p}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></Svg>);
         const Pencil = memo((p) => <Svg {...p}><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></Svg>);
         const Share2 = memo((p) => <Svg {...p}><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></Svg>);
-        const LinkIcon = memo((p) => <Svg {...p}><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></Svg>);
+        const Eye = memo((p) => <Svg {...p}><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></Svg>);
         const RotateCcw = memo((p) => <Svg {...p}><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></Svg>);
         const Sparkles = memo((p) => <Svg {...p}><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></Svg>);
         const Loader2 = memo((p) => <Svg {...p} className={`animate-spin ${p.className||''}`}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></Svg>);
@@ -113,6 +114,12 @@
         const ChevronUp = memo((p) => <Svg {...p}><polyline points="18 15 12 9 6 15"/></Svg>);
         const ChevronDown = memo((p) => <Svg {...p}><polyline points="6 9 12 15 18 9"/></Svg>);
         const LogOut = memo((p) => <Svg {...p}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></Svg>);
+        const ArchiveIcon = memo((p) => <Svg {...p}><rect width="20" height="5" x="2" y="4" rx="1"/><path d="M4 9v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9"/><path d="M10 13h4"/></Svg>);
+        const MessageSquare = memo((p) => <Svg {...p}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></Svg>);
+        const Paperclip = memo((p) => <Svg {...p}><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></Svg>);
+        const Users = memo((p) => <Svg {...p}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></Svg>);
+        const ShieldCheck = memo((p) => <Svg {...p}><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></Svg>);
+        const Key = memo((p) => <Svg {...p}><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></Svg>);
 
         // ==========================================
         // DANE POMOCNICZE
@@ -148,7 +155,7 @@
         }
 
         // ==========================================
-        // KOMPONENTY BEZSTANOWE (Zoptymalizowane)
+        // KOMPONENTY BEZSTANOWE I WIDżETY
         // ==========================================
         const NavItem = memo(({ icon: IconComponent, label, active, onClick }) => (
           <button onClick={onClick} className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all group ${active ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-slate-400 hover:bg-indigo-50 hover:text-indigo-600'}`}>
@@ -157,15 +164,18 @@
           </button>
         ));
 
-        const StatCard = memo(({ title, value, icon: IconComponent, color }) => {
+        const StatCard = memo(({ title, value, icon: IconComponent, color, onClick }) => {
           const colors = { blue: 'text-blue-600 bg-blue-50', red: 'text-red-600 bg-red-50', green: 'text-green-600 bg-green-50', orange: 'text-orange-600 bg-orange-50' };
           return (
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between text-indigo-950">
+            <div 
+              onClick={onClick}
+              className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between text-indigo-950 cursor-pointer hover:border-indigo-200 hover:shadow-md transition-all active:scale-95 group"
+            >
               <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 tracking-tight tracking-tighter leading-none">{title}</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 tracking-tight tracking-tighter leading-none group-hover:text-indigo-500 transition-colors">{title}</p>
                 <p className="text-2xl font-black tracking-tight">{value}</p>
               </div>
-              <div className={`p-3 rounded-xl ${colors[color]}`}><IconComponent size={24} /></div>
+              <div className={`p-3 rounded-xl ${colors[color]} group-hover:scale-110 transition-transform`}><IconComponent size={24} /></div>
             </div>
           );
         });
@@ -177,15 +187,68 @@
           </button>
         ));
 
-        const DocItem = memo(({ title, size, type }) => (
-          <div className="bg-white p-4 border border-slate-100 rounded-xl flex items-center gap-4 hover:border-indigo-200 transition-all cursor-pointer shadow-sm group text-indigo-950">
-            <div className={`w-12 h-12 rounded-lg flex items-center justify-center font-black text-[10px] ${type === 'pdf' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>{type ? type.toUpperCase() : 'DOC'}</div>
-            <div className="flex-1 overflow-hidden">
-              <p className="text-xs font-bold truncate">{title}</p><p className="text-[10px] text-slate-400 mt-0.5 tracking-tight tracking-tighter leading-none">{size}</p>
+        const DocItem = memo(({ title, size, type, url, onDelete, onPreview, canModify = true }) => {
+          const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic'].includes(type?.toLowerCase());
+          return (
+            <div 
+              className="bg-white p-3 border border-slate-100 rounded-xl flex items-center gap-4 hover:border-indigo-200 transition-all shadow-sm group text-indigo-950 cursor-pointer" 
+              onClick={() => onPreview({title, type, url})}
+            >
+              <div className={`relative z-10 w-12 h-12 shrink-0 rounded-lg flex items-center justify-center font-black text-[10px] uppercase overflow-hidden ${!isImage && type === 'pdf' ? 'bg-red-50 text-red-600' : 'bg-indigo-50 text-indigo-600'}`}>
+                  {isImage ? (
+                      <img src={url} alt={title} className="w-full h-full object-cover" />
+                  ) : (
+                      type ? type.substring(0,4) : 'DOC'
+                  )}
+              </div>
+              <div className="flex-1 overflow-hidden relative z-10 pointer-events-none">
+                <p className="text-xs font-bold truncate pr-6 text-slate-700 group-hover:text-indigo-600 transition-colors">{title}</p>
+                <p className="text-[10px] text-slate-400 mt-0.5 tracking-tight tracking-tighter leading-none">{size}</p>
+              </div>
+              <div className="relative z-10 flex gap-1 items-center bg-white rounded-lg shadow-sm border border-slate-100 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button onClick={(e) => { e.stopPropagation(); onPreview({title, type, url}); }} className="p-2 text-slate-400 hover:text-indigo-600 transition-colors" title="Podgląd pliku">
+                      <Eye size={14} />
+                  </button>
+                  {canModify && (
+                      <>
+                          <div className="w-px h-4 bg-slate-200"></div>
+                          <button onClick={(e) => { e.stopPropagation(); onDelete(); }} className="p-2 text-slate-400 hover:text-red-600 transition-colors" title="Usuń dokument">
+                              <Trash2 size={14} />
+                          </button>
+                      </>
+                  )}
+              </div>
             </div>
-            <Download size={14} className="text-slate-300 group-hover:text-indigo-600 transition-colors" />
-          </div>
-        ));
+          );
+        });
+
+        const AttachmentItem = memo(({ att, onDelete, onPreview, canModify = true }) => {
+            const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic'].includes(att.type?.toLowerCase());
+            return (
+                <div 
+                    className="relative group w-full rounded-xl overflow-hidden border border-slate-200 shadow-sm bg-slate-50 aspect-square flex flex-col cursor-pointer shrink-0"
+                    onClick={() => onPreview({title: att.title, type: att.type, url: att.url})}
+                >
+                    <div className="block w-full h-full">
+                        {isImage ? (
+                            <img src={att.url} alt={att.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                        ) : (
+                            <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center text-slate-500 group-hover:bg-slate-100 transition-colors">
+                                {att.type === 'pdf' ? <FileText size={24} className="mb-2 text-red-400" /> : <FileText size={24} className="mb-2 text-indigo-400" />}
+                                <span className="text-[9px] font-bold uppercase truncate w-full px-1">{att.title}</span>
+                            </div>
+                        )}
+                    </div>
+                    {canModify && (
+                        <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity z-10 flex gap-1">
+                            <button onClick={(e) => { e.stopPropagation(); onDelete(); }} className="p-1.5 bg-white/90 text-red-600 rounded-lg shadow-sm hover:bg-red-50 backdrop-blur" title="Usuń załącznik">
+                                <Trash2 size={12} />
+                            </button>
+                        </div>
+                    )}
+                </div>
+            );
+        });
 
         const InfoRow = memo(({ icon: IconComponent, label, value }) => (
           <div className="flex items-center gap-4">
@@ -198,15 +261,215 @@
         ));
 
         // ==========================================
+        // KOMPONENT WIDOKU PODGLĄDU PLIKU
+        // ==========================================
+        const FilePreviewModal = ({ file, onClose }) => {
+            if (!file) return null;
+            const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic'].includes(file.type?.toLowerCase());
+            const isPdf = file.type?.toLowerCase() === 'pdf';
+
+            useEffect(() => {
+                document.body.style.overflow = 'hidden';
+                return () => { document.body.style.overflow = 'auto'; };
+            }, []);
+
+            return (
+                <div className="fixed inset-0 z-[250] flex items-center justify-center p-2 md:p-8">
+                    <div className="absolute inset-0 bg-slate-900/90 backdrop-blur-sm" onClick={onClose} />
+                    <div className="bg-white rounded-2xl w-full max-w-6xl h-[95vh] md:h-full max-h-[90vh] flex flex-col relative z-10 overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+                        <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-slate-50 shrink-0">
+                            <h3 className="font-bold text-slate-800 flex items-center gap-2 truncate pr-4">
+                                {isPdf ? <FileText size={18} className="text-red-500 shrink-0"/> : <ImageIcon size={18} className="text-indigo-500 shrink-0"/>}
+                                <span className="truncate">{file.title}</span>
+                            </h3>
+                            <div className="flex gap-2 shrink-0">
+                                <a href={file.url} target="_blank" rel="noopener noreferrer" className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-slate-200 rounded-lg transition-colors flex items-center gap-1" title="Pobierz lub otwórz w nowej karcie">
+                                    <ExternalLink size={18} /> <span className="text-xs font-bold hidden sm:inline">Nowa karta</span>
+                                </a>
+                                <button onClick={onClose} className="p-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Zamknij">
+                                    <X size={18} />
+                                </button>
+                            </div>
+                        </div>
+                        <div className="flex-1 bg-slate-200/50 relative overflow-hidden flex items-center justify-center p-2 md:p-6">
+                            {isImage && <img src={file.url} alt={file.title} className="max-w-full max-h-full object-contain rounded-lg shadow-sm" />}
+                            {isPdf && <iframe src={`${file.url}#view=FitH`} className="w-full h-full rounded-xl shadow-sm border-0 bg-white" title={file.title} />}
+                            {!isImage && !isPdf && (
+                                <div className="text-center text-slate-500 p-8 bg-white rounded-2xl shadow-sm">
+                                    <FileText size={48} className="mx-auto mb-4 text-slate-300" />
+                                    <p className="font-medium mb-4">Brak wbudowanego podglądu dla tego typu pliku.</p>
+                                    <a href={file.url} target="_blank" rel="noopener noreferrer" className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors inline-block shadow-lg">Pobierz plik</a>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // ==========================================
         // KOMPONENTY WIDOKÓW
         // ==========================================
-        const DashboardView = ({ restaurants, tickets, tasks, notes, onSelectTicket }) => (
+        
+        const AdminView = memo(({ 
+            usersList, restaurants, tickets, notes, historyLogs,
+            onRoleChange, onOpenPasswordModal, onForceDelete 
+        }) => {
+            const [adminTab, setAdminTab] = useState('users');
+
+            return (
+                <div className="space-y-4 animate-in fade-in duration-300">
+                    <div className="flex justify-between items-end mb-4">
+                        <div>
+                            <h2 className="text-xl font-black tracking-tight text-indigo-950">Panel Administratora</h2>
+                            <p className="text-slate-500 text-xs">Globalny wgląd w bazę danych i pełne zarządzanie systemem</p>
+                        </div>
+                    </div>
+
+                    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm flex flex-col">
+                        <div className="flex bg-slate-50 border-b border-slate-200 overflow-x-auto scrollbar-hide">
+                            <button onClick={() => setAdminTab('users')} className={`px-6 py-4 text-xs font-black uppercase tracking-widest whitespace-nowrap transition-colors ${adminTab === 'users' ? 'text-indigo-600 bg-white border-b-2 border-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}>Użytkownicy ({usersList.length})</button>
+                            <button onClick={() => setAdminTab('restaurants')} className={`px-6 py-4 text-xs font-black uppercase tracking-widest whitespace-nowrap transition-colors ${adminTab === 'restaurants' ? 'text-indigo-600 bg-white border-b-2 border-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}>Restauracje ({restaurants.length})</button>
+                            <button onClick={() => setAdminTab('tickets')} className={`px-6 py-4 text-xs font-black uppercase tracking-widest whitespace-nowrap transition-colors ${adminTab === 'tickets' ? 'text-indigo-600 bg-white border-b-2 border-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}>Zgłoszenia ({tickets.length})</button>
+                            <button onClick={() => setAdminTab('notes')} className={`px-6 py-4 text-xs font-black uppercase tracking-widest whitespace-nowrap transition-colors ${adminTab === 'notes' ? 'text-indigo-600 bg-white border-b-2 border-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}>Notatki ({notes.length})</button>
+                        </div>
+
+                        <div className="p-0 overflow-x-auto">
+                            {adminTab === 'users' && (
+                                <table className="w-full text-left border-collapse min-w-[600px] animate-in fade-in">
+                                    <thead>
+                                        <tr className="bg-slate-50/50 border-b border-slate-200 text-[10px] uppercase font-black text-slate-500">
+                                            <th className="px-6 py-4">Użytkownik (E-mail)</th>
+                                            <th className="px-6 py-4">Status / Rola</th>
+                                            <th className="px-6 py-4">Data dołączenia</th>
+                                            <th className="px-6 py-4 text-right">Zarządzanie kontem</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {usersList.map(u => (
+                                            <tr key={u.id} className="hover:bg-slate-50 transition-colors group">
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-black uppercase shrink-0">{u.email ? u.email.slice(0, 2) : 'U'}</div>
+                                                        <span className="text-sm font-bold text-slate-800">{u.email}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <select 
+                                                        className={`text-xs font-bold p-2 rounded-xl border outline-none cursor-pointer transition-colors shadow-sm ${u.role === 'Administrator' ? 'bg-indigo-50 text-indigo-700 border-indigo-200 focus:ring-2 focus:ring-indigo-100' : 'bg-slate-50 text-slate-600 border-slate-200 focus:ring-2 focus:ring-slate-200'}`}
+                                                        value={u.role || 'Serwisant'}
+                                                        onChange={(e) => onRoleChange(u.id, e.target.value)}
+                                                    >
+                                                        <option value="Serwisant">Serwisant</option>
+                                                        <option value="Administrator">Administrator</option>
+                                                    </select>
+                                                </td>
+                                                <td className="px-6 py-4 text-xs text-slate-500 font-medium">
+                                                    {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : 'Brak danych'}
+                                                </td>
+                                                <td className="px-6 py-4 text-right">
+                                                    <button onClick={() => onOpenPasswordModal(u)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors inline-flex items-center gap-2" title="Zmień/Resetuj hasło">
+                                                        <Key size={16} /> <span className="text-xs font-bold hidden sm:inline">Zarządzaj hasłem</span>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                        {usersList.length === 0 && (<tr><td colSpan="4" className="text-center py-8 text-sm text-slate-400 italic">Brak użytkowników.</td></tr>)}
+                                    </tbody>
+                                </table>
+                            )}
+                            
+                            {adminTab === 'restaurants' && (
+                                <table className="w-full text-left border-collapse min-w-[600px] animate-in fade-in">
+                                    <thead>
+                                        <tr className="bg-slate-50/50 border-b border-slate-200 text-[10px] uppercase font-black text-slate-500">
+                                            <th className="px-6 py-4">Nazwa / Marka</th>
+                                            <th className="px-6 py-4">Miasto</th>
+                                            <th className="px-6 py-4">Autor wpisu</th>
+                                            <th className="px-6 py-4 text-right">Admin: Wymuś Usunięcie</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {restaurants.map(r => (
+                                            <tr key={r.id} className="hover:bg-slate-50 transition-colors">
+                                                <td className="px-6 py-3"><p className="text-sm font-bold text-slate-800">{r.name}</p><p className="text-[10px] text-slate-400 uppercase tracking-widest">{r.brand}</p></td>
+                                                <td className="px-6 py-3 text-xs font-medium text-slate-600">{r.city}</td>
+                                                <td className="px-6 py-3 text-xs font-medium text-slate-600">{r.authorEmail || 'Nieznany'}</td>
+                                                <td className="px-6 py-3 text-right">
+                                                    <button onClick={() => onForceDelete('restaurants', r)} className="text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 rounded-lg text-xs font-bold p-2 transition-colors inline-flex items-center gap-2"><Trash2 size={14} /> Usuń</button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                        {restaurants.length === 0 && (<tr><td colSpan="4" className="text-center py-8 text-sm text-slate-400 italic">Brak restauracji.</td></tr>)}
+                                    </tbody>
+                                </table>
+                            )}
+
+                            {adminTab === 'tickets' && (
+                                <table className="w-full text-left border-collapse min-w-[700px] animate-in fade-in">
+                                    <thead>
+                                        <tr className="bg-slate-50/50 border-b border-slate-200 text-[10px] uppercase font-black text-slate-500">
+                                            <th className="px-6 py-4">Tytuł Zgłoszenia</th>
+                                            <th className="px-6 py-4">Lokal</th>
+                                            <th className="px-6 py-4">Autor wpisu</th>
+                                            <th className="px-6 py-4 text-right">Admin: Wymuś Usunięcie</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {tickets.map(t => {
+                                            const resName = restaurants.find(r => r.id === t.restaurantId)?.name || 'Nieznany lokal';
+                                            return (
+                                            <tr key={t.id} className="hover:bg-slate-50 transition-colors">
+                                                <td className="px-6 py-3"><p className="text-sm font-bold text-slate-800">{t.title}</p><p className="text-[10px] text-slate-400 uppercase tracking-widest">{t.status} | {t.priority}</p></td>
+                                                <td className="px-6 py-3 text-xs font-medium text-slate-600">{resName}</td>
+                                                <td className="px-6 py-3 text-xs font-medium text-slate-600">{t.authorEmail || 'Nieznany'}</td>
+                                                <td className="px-6 py-3 text-right">
+                                                    <button onClick={() => onForceDelete('tickets', t)} className="text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 rounded-lg text-xs font-bold p-2 transition-colors inline-flex items-center gap-2"><Trash2 size={14} /> Usuń</button>
+                                                </td>
+                                            </tr>
+                                        )})}
+                                        {tickets.length === 0 && (<tr><td colSpan="4" className="text-center py-8 text-sm text-slate-400 italic">Brak zgłoszeń.</td></tr>)}
+                                    </tbody>
+                                </table>
+                            )}
+
+                            {adminTab === 'notes' && (
+                                <table className="w-full text-left border-collapse min-w-[600px] animate-in fade-in">
+                                    <thead>
+                                        <tr className="bg-slate-50/50 border-b border-slate-200 text-[10px] uppercase font-black text-slate-500">
+                                            <th className="px-6 py-4 w-1/2">Notatka (Tytuł i Podgląd)</th>
+                                            <th className="px-6 py-4">Autor wpisu</th>
+                                            <th className="px-6 py-4 text-right">Admin: Wymuś Usunięcie</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {notes.map(n => (
+                                            <tr key={n.id} className="hover:bg-slate-50 transition-colors">
+                                                <td className="px-6 py-3"><p className="text-sm font-bold text-slate-800">{n.title}</p><p className="text-[10px] text-slate-400 truncate mt-1">{n.content}</p></td>
+                                                <td className="px-6 py-3 text-xs font-medium text-slate-600">{n.authorEmail || 'Nieznany'}</td>
+                                                <td className="px-6 py-3 text-right">
+                                                    <button onClick={() => onForceDelete('notes', n)} className="text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 rounded-lg text-xs font-bold p-2 transition-colors inline-flex items-center gap-2"><Trash2 size={14} /> Usuń</button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                        {notes.length === 0 && (<tr><td colSpan="3" className="text-center py-8 text-sm text-slate-400 italic">Brak notatek.</td></tr>)}
+                                    </tbody>
+                                </table>
+                            )}
+
+                        </div>
+                    </div>
+                </div>
+            );
+        });
+
+        const DashboardView = memo(({ restaurants, tickets, tasks, notes, onOpenTicket, onNavigate }) => (
           <div className="space-y-6 animate-in fade-in duration-500">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <StatCard title="Restauracje" value={restaurants.length} icon={Store} color="blue" />
-              <StatCard title="Otwarte Zgłoszenia" value={tickets.filter(t => t.status !== 'Zakończone').length} icon={AlertCircle} color="red" />
-              <StatCard title="Zadania (Dziś)" value={tasks.filter(t => !t.completed).length} icon={CheckSquare} color="green" />
-              <StatCard title="Notatki" value={notes.length} icon={StickyNote} color="orange" />
+              <StatCard title="Restauracje" value={restaurants.length} icon={Store} color="blue" onClick={() => onNavigate('restaurants')} />
+              <StatCard title="Otwarte Zgłoszenia" value={tickets.filter(t => t.status !== 'Zakończone').length} icon={AlertCircle} color="red" onClick={() => onNavigate('all_tickets')} />
+              <StatCard title="Zadania (Dziś)" value={tasks.filter(t => !t.completed).length} icon={CheckSquare} color="green" onClick={() => onNavigate('tasks')} />
+              <StatCard title="Wszystkie Notatki" value={notes.length} icon={StickyNote} color="orange" onClick={() => onNavigate('notes')} />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -218,7 +481,7 @@
                   {tickets.slice(0, 5).map(t => {
                     const tRest = restaurants.find(r => r.id === t.restaurantId);
                     return (
-                      <div key={t.id} onClick={() => tRest && onSelectTicket(tRest)} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl cursor-pointer hover:bg-indigo-50 hover:shadow-sm transition-all group">
+                      <div key={t.id} onClick={() => onOpenTicket(t)} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl cursor-pointer hover:bg-indigo-50 hover:shadow-sm transition-all group">
                         <div className="flex-1">
                           <p className="font-semibold text-sm group-hover:text-indigo-700 transition-colors">{t.title}</p>
                           <p className="text-xs text-slate-500">{tRest ? tRest.name : 'Nieznany lokal'}</p>
@@ -253,9 +516,9 @@
               </div>
             </div>
           </div>
-        );
+        ));
 
-        const AllTicketsView = ({ tickets, restaurants, onGoToRestaurant, onEditTicket, onShareTicket, sortConfig, onRequestSort }) => {
+        const AllTicketsView = memo(({ tickets, restaurants, onOpenTicket, onShareTicket, sortConfig, onRequestSort }) => {
           const renderSortIcon = (key) => {
             if (sortConfig.key !== key) return <ArrowUpDown size={10} className="text-slate-300" />;
             return sortConfig.direction === 'asc' ? <ChevronUp size={10} className="text-indigo-600" /> : <ChevronDown size={10} className="text-indigo-600" />;
@@ -285,7 +548,11 @@
                     {tickets.map(t => {
                       const r = restaurants.find(res => res.id === t.restaurantId);
                       return (
-                        <tr key={t.id} className="hover:bg-slate-50 transition-colors">
+                        <tr 
+                          key={t.id} 
+                          className="hover:bg-slate-50 transition-colors cursor-pointer group" 
+                          onClick={() => onOpenTicket(t)}
+                        >
                           <td className="px-4 py-3 text-xs text-slate-500">{t.date}</td>
                           <td className="px-4 py-3"><p className="text-xs font-bold text-slate-800">{r?.name}</p><p className="text-[9px] text-slate-400">{r?.brand}</p></td>
                           <td className="px-4 py-3 text-xs font-medium text-slate-700">{t.title}</td>
@@ -293,9 +560,8 @@
                           <td className="px-4 py-3"><span className={`text-[10px] px-2 py-1 rounded-md font-bold ${t.status === 'Zakończone' ? 'bg-green-50 text-green-700' : t.status === 'W realizacji' ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-700'}`}>{t.status}</span></td>
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2">
-                              <button onClick={() => onEditTicket(t)} className="text-slate-400 hover:text-indigo-600 transition-colors" title="Edytuj zgłoszenie"><Pencil size={14} /></button>
-                              <button onClick={() => onShareTicket(t, r?.name)} className="text-slate-400 hover:text-indigo-600 transition-colors" title="Udostępnij link"><Share2 size={14} /></button>
-                              <button onClick={() => r && onGoToRestaurant(r)} className="text-slate-400 hover:text-indigo-600 transition-colors" title="Przejdź do lokalu"><ExternalLink size={14} /></button>
+                              <button onClick={(e) => { e.stopPropagation(); onOpenTicket(t); }} className="text-slate-400 hover:text-indigo-600 transition-colors" title="Otwórz zgłoszenie"><ExternalLink size={14} /></button>
+                              <button onClick={(e) => { e.stopPropagation(); onShareTicket(t, r?.name); }} className="text-slate-400 hover:text-indigo-600 transition-colors" title="Udostępnij link"><Share2 size={14} /></button>
                             </div>
                           </td>
                         </tr>
@@ -307,9 +573,9 @@
               </div>
             </div>
           );
-        };
+        });
 
-        const RestaurantListView = ({ restaurants, tickets, tasks, onAddClick, onSelect, sortConfig, onRequestSort, columnFilters, onFilterChange, onResetFilters }) => (
+        const RestaurantListView = memo(({ restaurants, tickets, tasks, onAddClick, onSelect, sortConfig, onRequestSort, columnFilters, onFilterChange, onResetFilters }) => (
           <div className="space-y-4 animate-in slide-in-from-bottom-4 duration-300">
             <div className="flex justify-between items-end">
               <div>
@@ -375,14 +641,481 @@
               </div>
             </div>
           </div>
-        );
+        ));
+
+        // --- GLOBALNE ARCHIWUM AKTYWNOŚCI ---
+        const ArchiveView = memo(({ logs, restaurants, canModifyItem, onDeleteLog }) => {
+            const sortedLogs = [...logs].sort((a, b) => new Date(b.date) - new Date(a.date));
+            return (
+                <div className="space-y-4 animate-in fade-in duration-300">
+                  <div className="flex justify-between items-end mb-4">
+                    <div>
+                      <h2 className="text-xl font-black tracking-tight text-indigo-950">Archiwum Systemowe</h2>
+                      <p className="text-slate-500 text-xs">Globalny rejestr wszystkich operacji i zmian wprowadzanych przez użytkowników</p>
+                    </div>
+                  </div>
+                  <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse min-w-[800px]">
+                            <thead>
+                                <tr className="bg-slate-50 border-b border-slate-200 text-[10px] uppercase font-black text-slate-500">
+                                    <th className="px-4 py-3 w-40">Data i Godzina</th>
+                                    <th className="px-4 py-3 w-32">Kategoria</th>
+                                    <th className="px-4 py-3 w-48">Lokal / Kontekst</th>
+                                    <th className="px-4 py-3">Szczegóły akcji (Użytkownik - Czynność)</th>
+                                    <th className="px-4 py-3 w-16 text-right">Akcje</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {sortedLogs.map(log => {
+                                    const parsedDate = new Date(log.date);
+                                    const rName = restaurants.find(r => r.id === log.restaurantId)?.name || 'Ogólne';
+                                    
+                                    let catColor = 'bg-slate-100 text-slate-600';
+                                    let catLabel = 'System';
+                                    if(log.type === 'ticket') { catColor = 'bg-red-50 text-red-600'; catLabel = 'Zgłoszenie'; }
+                                    if(log.type === 'task') { catColor = 'bg-green-50 text-green-700'; catLabel = 'Zadanie'; }
+                                    if(log.type === 'note') { catColor = 'bg-amber-50 text-amber-700'; catLabel = 'Notatka'; }
+                                    if(log.type === 'doc') { catColor = 'bg-blue-50 text-blue-700'; catLabel = 'Dokument'; }
+                                    if(log.type === 'restaurant') { catColor = 'bg-indigo-50 text-indigo-700'; catLabel = 'Restauracja'; }
+
+                                    return (
+                                        <tr key={log.id} className="hover:bg-slate-50/50 transition-colors">
+                                            <td className="px-4 py-3">
+                                                <div className="text-xs font-bold text-slate-700">{parsedDate.toLocaleDateString()}</div>
+                                                <div className="text-[10px] text-slate-400">{parsedDate.toLocaleTimeString()}</div>
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <span className={`text-[9px] px-2 py-1 rounded font-black uppercase ${catColor}`}>{catLabel}</span>
+                                            </td>
+                                            <td className="px-4 py-3 text-xs font-semibold text-slate-600 truncate">
+                                                {rName}
+                                            </td>
+                                            <td className="px-4 py-3 text-xs text-slate-800 leading-relaxed font-medium whitespace-pre-wrap">
+                                                {log.description}
+                                            </td>
+                                            <td className="px-4 py-3 text-right">
+                                                {canModifyItem(log.authorEmail) && (
+                                                    <button onClick={() => onDeleteLog(log.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Usuń trwale"><Trash2 size={14}/></button>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                                {sortedLogs.length === 0 && (
+                                    <tr><td colSpan="5" className="text-center py-8 text-sm text-slate-400 italic">Brak wpisów w archiwum.</td></tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                  </div>
+                </div>
+            );
+        });
+
+        const TicketDetailView = ({
+            ticket, restaurant, onBack, onSave, isSubmittingAction, canModifyItem,
+            attachments, onUploadAttachment, isUploading, uploadProgress, onDeleteAttachment, onPreview, ticketLogs = [],
+            onAddUpdateWithFiles, onEditUpdate, onDeleteUpdate, onDeleteTicket, onDeleteLog
+        }) => {
+            const isNew = !ticket;
+
+            const [title, setTitle] = useState(ticket?.title || '');
+            const [priority, setPriority] = useState(ticket?.priority || 'Średni');
+            const [status, setStatus] = useState(ticket?.status || 'Nowe');
+            const [desc, setDesc] = useState(ticket?.description || '');
+
+            const [isEditingDesc, setIsEditingDesc] = useState(isNew);
+            const [updateText, setUpdateText] = useState('');
+            const [updateFiles, setUpdateFiles] = useState([]); 
+
+            const [editingUpdateId, setEditingUpdateId] = useState(null);
+            const [editUpdateText, setEditUpdateText] = useState('');
+            
+            const [aiTip, setAiTip] = useState('');
+            const [loadingAi, setLoadingAi] = useState(false);
+            const [expandedLogId, setExpandedLogId] = useState(null);
+            
+            const ticketUpdates = ticket?.updates || [];
+            const hasMainChanges = !isNew && (title !== ticket.title || priority !== ticket.priority || status !== ticket.status);
+            
+            const suggestSolution = async () => {
+                if (!title || (!desc && !ticket?.description)) return;
+                setLoadingAi(true);
+                try {
+                    const result = await callGemini(`Zgłoszenie: ${title}. Opis: ${desc || ticket?.description}. Zaproponuj 3 konkretne kroki naprawcze.`, "Jesteś ekspertem serwisowym.");
+                    setAiTip(result);
+                } catch(e) { setAiTip("Błąd AI."); } finally { setLoadingAi(false); }
+            };
+
+            const handleCreateNew = () => { onSave({ restaurantId: restaurant?.id, title, priority, status, description: desc }); };
+            const handleSaveMainDetails = () => { onSave({ id: ticket.id, title, priority, status, restaurantId: ticket.restaurantId }); };
+            const handleSaveDescription = () => { onSave({ id: ticket.id, description: desc, restaurantId: ticket.restaurantId }); setIsEditingDesc(false); };
+
+            const submitUpdate = async () => {
+                if (!updateText.trim() && updateFiles.length === 0) return;
+                await onAddUpdateWithFiles(ticket.id, updateText.trim(), updateFiles);
+                setUpdateText('');
+                setUpdateFiles([]);
+            };
+
+            const mainAttachments = attachments.filter(a => !a.updateId);
+            const updateAttachments = attachments.filter(a => a.updateId);
+
+            if (isNew) {
+                return (
+                    <div className="space-y-6 animate-in fade-in duration-300">
+                        <button onClick={onBack} className="text-indigo-600 font-semibold text-sm flex items-center gap-1 hover:underline group">
+                            <ChevronLeft size={16} className="group-hover:-translate-x-1 transition-transform" /> Powrót
+                        </button>
+                        
+                        <div>
+                            <h2 className="text-2xl font-black text-indigo-950 tracking-tight">Nowe Zgłoszenie</h2>
+                            <p className="text-sm text-slate-500">{restaurant?.name || 'Brak lokalu'} • {restaurant?.city}</p>
+                        </div>
+
+                        <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm space-y-6 max-w-4xl">
+                            <div>
+                                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 tracking-wider text-indigo-950/60">Tytuł Zgłoszenia</label>
+                                <input required className="w-full mt-1 p-3 bg-slate-50 border-none rounded-xl outline-none text-sm font-bold text-indigo-950 focus:ring-2 focus:ring-indigo-100 transition-all" placeholder="Krótki opis usterki..." value={title} onChange={e => setTitle(e.target.value)} />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 tracking-wider text-indigo-950/60">Priorytet</label>
+                                    <select className="w-full mt-1 p-3 bg-slate-50 border-none rounded-xl outline-none text-sm font-semibold text-indigo-950 focus:ring-2 focus:ring-indigo-100 transition-all" value={priority} onChange={e => setPriority(e.target.value)}>
+                                        <option>Niski</option><option>Średni</option><option>Wysoki</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 tracking-wider text-indigo-950/60">Status wstępny</label>
+                                    <select className="w-full mt-1 p-3 bg-slate-50 border-none rounded-xl outline-none text-sm font-bold text-indigo-600 focus:ring-2 focus:ring-indigo-100 transition-all" value={status} onChange={e => setStatus(e.target.value)}>
+                                        <option>Nowe</option><option>W realizacji</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 tracking-wider text-indigo-950/60">Opis szczegółowy</label>
+                                <textarea rows="5" className="w-full mt-1 p-3 bg-slate-50 border-none rounded-xl outline-none text-sm resize-none leading-relaxed text-indigo-950 focus:ring-2 focus:ring-indigo-100 transition-all" placeholder="Opisz dokładnie problem..." value={desc} onChange={e => setDesc(e.target.value)} />
+                            </div>
+
+                            <div className="flex justify-end pt-4 border-t border-slate-100">
+                                <button onClick={handleCreateNew} disabled={isSubmittingAction || !title} className="px-8 py-3 bg-indigo-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2">
+                                    {isSubmittingAction ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                                    Zapisz i utwórz zgłoszenie
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+
+            return (
+                <div className="space-y-6 animate-in fade-in duration-300">
+                     <button onClick={onBack} className="text-indigo-600 font-semibold text-sm flex items-center gap-1 hover:underline group">
+                        <ChevronLeft size={16} className="group-hover:-translate-x-1 transition-transform" /> Powrót
+                     </button>
+                     
+                     <div className="flex items-center justify-between">
+                         <div>
+                             <h2 className="text-2xl font-black text-indigo-950 tracking-tight">Zgłoszenie: {ticket.title}</h2>
+                             <p className="text-sm text-slate-500">{restaurant?.name || 'Brak lokalu'} • {restaurant?.city}</p>
+                         </div>
+                         {canModifyItem(ticket.authorEmail) && (
+                             <button onClick={() => onDeleteTicket(ticket)} disabled={isSubmittingAction} className="px-4 py-2 bg-red-50 text-red-600 rounded-lg text-sm font-bold shadow-sm hover:bg-red-100 transition-all flex items-center gap-2 disabled:opacity-50">
+                                 {isSubmittingAction ? <Loader2 size={16} className="animate-spin"/> : <Trash2 size={16} />} Usuń Zgłoszenie
+                             </button>
+                         )}
+                     </div>
+
+                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                         <div className="lg:col-span-2 space-y-6">
+                             <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                                  <div className="space-y-4">
+                                      <div>
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 tracking-wider text-indigo-950/60">Tytuł Zgłoszenia</label>
+                                        <input className="w-full mt-1 p-3 bg-slate-50 border border-transparent rounded-xl outline-none text-sm font-bold text-indigo-950 focus:bg-white focus:border-indigo-200 focus:ring-2 focus:ring-indigo-50 transition-all" value={title} onChange={e => setTitle(e.target.value)} disabled={!canModifyItem(ticket.authorEmail)} />
+                                      </div>
+
+                                      <div className="grid grid-cols-2 gap-4">
+                                         <div>
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 tracking-wider text-indigo-950/60">Priorytet</label>
+                                            <select className="w-full mt-1 p-3 bg-slate-50 border border-transparent rounded-xl outline-none text-sm font-semibold text-indigo-950 focus:bg-white focus:border-indigo-200 focus:ring-2 focus:ring-indigo-50 transition-all cursor-pointer" value={priority} onChange={e => setPriority(e.target.value)} disabled={!canModifyItem(ticket.authorEmail)}>
+                                                <option>Niski</option><option>Średni</option><option>Wysoki</option>
+                                            </select>
+                                         </div>
+                                         <div>
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 tracking-wider text-indigo-950/60">Status</label>
+                                            <select className={`w-full mt-1 p-3 bg-slate-50 border border-transparent rounded-xl outline-none text-sm font-bold focus:bg-white focus:border-indigo-200 focus:ring-2 focus:ring-indigo-50 transition-all cursor-pointer ${status === 'Zakończone' ? 'text-green-600' : 'text-indigo-600'}`} value={status} onChange={e => setStatus(e.target.value)} disabled={!canModifyItem(ticket.authorEmail)}>
+                                                <option>Nowe</option><option>W realizacji</option><option>Wstrzymane</option><option>Zakończone</option>
+                                            </select>
+                                         </div>
+                                      </div>
+
+                                      {hasMainChanges && canModifyItem(ticket.authorEmail) && (
+                                          <div className="flex justify-end gap-2 pt-4 mt-2 border-t border-slate-100 animate-in fade-in duration-200">
+                                              <button onClick={() => {setTitle(ticket.title); setPriority(ticket.priority); setStatus(ticket.status);}} className="px-5 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition-all">Anuluj</button>
+                                              <button onClick={handleSaveMainDetails} disabled={isSubmittingAction || !title} className="px-5 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold shadow-md hover:bg-indigo-700 transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2">
+                                                  {isSubmittingAction ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} Zapisz
+                                              </button>
+                                          </div>
+                                      )}
+                                  </div>
+                             </div>
+
+                             <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+                                  <div className="flex items-center justify-between mb-4">
+                                      <h3 className="text-sm font-bold text-indigo-950 flex items-center gap-2">
+                                          <MessageSquare size={18} className="text-indigo-500" /> Przebieg zgłoszenia
+                                      </h3>
+                                      <button onClick={suggestSolution} disabled={loadingAi || (!desc && !ticket.description)} className="flex items-center gap-2 text-[10px] font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition-all disabled:opacity-50 shadow-sm">
+                                          {loadingAi ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />} Rozwiązanie AI
+                                      </button>
+                                  </div>
+                                  
+                                  {aiTip && (<div className="p-4 bg-indigo-50/50 border border-indigo-100 rounded-2xl animate-in slide-in-from-top-2"><div className="text-xs text-indigo-900 leading-relaxed whitespace-pre-wrap">{aiTip}</div></div>)}
+
+                                  <div className="space-y-4">
+                                      <div className="bg-slate-50 border border-slate-100 rounded-xl p-4">
+                                          <div className="flex justify-between items-center mb-2">
+                                              <span className="text-[10px] font-black uppercase text-slate-500">Pierwotny opis zgłoszenia</span>
+                                              {!isEditingDesc && canModifyItem(ticket.authorEmail) && (
+                                                  <button onClick={() => {setDesc(ticket.description || ''); setIsEditingDesc(true);}} className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors flex items-center gap-1">
+                                                      <Pencil size={12} /> Edytuj
+                                                  </button>
+                                              )}
+                                          </div>
+                                          {isEditingDesc ? (
+                                               <div className="animate-in fade-in duration-200 mt-2">
+                                                   <textarea rows="4" className="w-full p-3 bg-white border border-slate-200 rounded-xl outline-none text-sm resize-none leading-relaxed text-indigo-950 focus:ring-2 focus:ring-indigo-100 transition-all shadow-sm" value={desc} onChange={e => setDesc(e.target.value)} />
+                                                   <div className="flex justify-end gap-2 mt-3">
+                                                       <button onClick={() => { setIsEditingDesc(false); setDesc(ticket.description || ''); }} className="px-4 py-1.5 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded-lg transition-all">Anuluj</button>
+                                                       <button onClick={handleSaveDescription} disabled={isSubmittingAction || (desc === ticket.description)} className="px-4 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 shadow-md transition-all disabled:opacity-50 flex items-center gap-1.5">
+                                                            {isSubmittingAction ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Zapisz zmiany
+                                                       </button>
+                                                   </div>
+                                               </div>
+                                          ) : (
+                                               <div className="text-sm leading-relaxed text-slate-700 whitespace-pre-wrap font-medium">
+                                                   {ticket.description || <span className="text-slate-400 italic">Brak opisu początkowego.</span>}
+                                               </div>
+                                          )}
+                                      </div>
+
+                                      {ticketUpdates.length > 0 && ticketUpdates.map(u => {
+                                          const wpisAttachments = updateAttachments.filter(a => a.updateId === u.id);
+                                          return (
+                                          <div key={u.id} className="bg-white border border-slate-200 rounded-xl p-4 ml-4 md:ml-8 relative before:absolute before:-left-[17px] md:before:-left-[33px] before:top-1/2 before:w-4 md:before:w-8 before:h-px before:bg-slate-200 border-l-4 border-l-indigo-400 shadow-sm animate-in fade-in duration-300">
+                                              <div className="flex justify-between items-center mb-2">
+                                                  <div className="flex flex-col md:flex-row md:items-center md:gap-2">
+                                                      <span className="text-[10px] font-black uppercase text-indigo-600">{u.author}</span>
+                                                      <span className="text-[9px] text-slate-400 font-medium">{new Date(u.date).toLocaleString()}</span>
+                                                  </div>
+                                                  
+                                                  {canModifyItem(u.authorEmail) && (
+                                                      <div className="flex gap-3 ml-2 shrink-0">
+                                                          {editingUpdateId !== u.id && (
+                                                              <button onClick={() => { setEditingUpdateId(u.id); setEditUpdateText(u.text); }} className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors flex items-center gap-1">
+                                                                  <Pencil size={12} /> Edytuj
+                                                              </button>
+                                                          )}
+                                                          <button onClick={() => onDeleteUpdate(ticket.id, u.id)} className="text-[10px] font-bold text-red-500 hover:text-red-700 transition-colors flex items-center gap-1">
+                                                              <Trash2 size={12} /> Usuń
+                                                          </button>
+                                                      </div>
+                                                  )}
+                                              </div>
+                                              
+                                              {editingUpdateId === u.id ? (
+                                                  <div className="mt-2 animate-in fade-in">
+                                                      <textarea rows="3" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm resize-none focus:ring-2 focus:ring-indigo-100 transition-all text-indigo-950" value={editUpdateText} onChange={e => setEditUpdateText(e.target.value)} />
+                                                      <div className="flex justify-end gap-2 mt-3">
+                                                          <button onClick={() => setEditingUpdateId(null)} className="px-4 py-1.5 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded-lg transition-all">Anuluj</button>
+                                                          <button onClick={() => { onEditUpdate(ticket.id, u.id, editUpdateText); setEditingUpdateId(null); }} className="px-4 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-bold shadow-md hover:bg-indigo-700 transition-all disabled:opacity-50" disabled={isSubmittingAction || !editUpdateText.trim()}>Zapisz</button>
+                                                      </div>
+                                                  </div>
+                                              ) : (
+                                                  <div className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed font-medium">{u.text}</div>
+                                              )}
+                                              
+                                              {wpisAttachments.length > 0 && (
+                                                  <div className="mt-3 flex flex-wrap gap-2 pt-3 border-t border-slate-100">
+                                                      {wpisAttachments.map(att => {
+                                                          const isImg = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic'].includes(att.type?.toLowerCase());
+                                                          return (
+                                                              <div key={att.id} onClick={() => onPreview({title: att.title, type: att.type, url: att.url})} className="relative group cursor-pointer w-12 h-12 rounded-lg overflow-hidden border border-slate-200 shadow-sm bg-slate-50">
+                                                                  {isImg ? (
+                                                                      <img src={att.url} alt={att.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" />
+                                                                  ) : (
+                                                                      <div className="w-full h-full flex flex-col items-center justify-center text-indigo-400 group-hover:bg-indigo-50 transition-colors">
+                                                                          <FileText size={16} />
+                                                                          <span className="text-[7px] font-bold mt-0.5">{att.type}</span>
+                                                                      </div>
+                                                                  )}
+                                                              </div>
+                                                          );
+                                                      })}
+                                                  </div>
+                                              )}
+                                          </div>
+                                      )})}
+
+                                      <div className="ml-4 md:ml-8 mt-6 relative before:absolute before:-left-[17px] md:before:-left-[33px] before:top-1/2 before:w-4 md:before:w-8 before:h-px before:bg-slate-200">
+                                          <div className="flex flex-col gap-2 bg-indigo-50/30 p-4 rounded-xl border border-indigo-100/50">
+                                              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider ml-1">Dodaj kolejny wpis</label>
+                                              <textarea rows="2" className="w-full p-3 bg-white border border-slate-200 rounded-xl outline-none text-sm resize-none focus:ring-2 focus:ring-indigo-100 transition-all text-indigo-950 shadow-sm" placeholder="Odpowiedz / zaktualizuj przebieg..." value={updateText} onChange={e => setUpdateText(e.target.value)} disabled={isSubmittingAction || isUploading} />
+                                              
+                                              {updateFiles.length > 0 && (
+                                                  <div className="flex flex-wrap gap-2 mt-2">
+                                                      {updateFiles.map((f, i) => (
+                                                          <div key={i} className="flex items-center gap-1.5 bg-indigo-100 text-indigo-700 px-2 py-1.5 rounded-lg text-[10px] font-bold shrink-0 animate-in zoom-in-95 duration-200 shadow-sm">
+                                                              <Paperclip size={12} className="shrink-0" />
+                                                              <span className="truncate max-w-[120px]">{f.name}</span>
+                                                              <button onClick={() => setUpdateFiles(prev => prev.filter((_, idx) => idx !== i))} className="hover:text-red-500 ml-1 bg-white/50 rounded-md p-0.5"><X size={12}/></button>
+                                                          </div>
+                                                      ))}
+                                                  </div>
+                                              )}
+
+                                              <div className="flex items-center justify-between mt-2">
+                                                  <label className={`cursor-pointer px-3 py-2 bg-white border border-slate-200 text-slate-500 rounded-lg hover:bg-slate-50 hover:text-indigo-600 transition-colors flex items-center gap-1.5 text-xs font-bold shadow-sm ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}>
+                                                      <Paperclip size={14} /> <span className="hidden sm:inline">Dołącz pliki do wpisu</span>
+                                                      <input type="file" multiple className="hidden" onChange={e => setUpdateFiles(prev => [...prev, ...Array.from(e.target.files)])} disabled={isUploading || isSubmittingAction} />
+                                                  </label>
+
+                                                  <button onClick={submitUpdate} disabled={(!updateText.trim() && updateFiles.length === 0) || isSubmittingAction || isUploading} className="px-6 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 transition-all disabled:opacity-50 flex items-center gap-2 shadow-sm shadow-indigo-200">
+                                                      {isSubmittingAction || isUploading ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} 
+                                                      {isUploading ? 'Wysyłanie...' : 'Dodaj wpis'}
+                                                  </button>
+                                              </div>
+                                              
+                                              {isUploading && uploadProgress > 0 && (
+                                                  <div className="w-full bg-slate-200 rounded-full h-1 mt-2 overflow-hidden">
+                                                      <div className="bg-indigo-500 h-1 transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div>
+                                                  </div>
+                                              )}
+                                          </div>
+                                      </div>
+                                  </div>
+                             </div>
+                         </div>
+
+                         <div className="space-y-6">
+                             <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                                 <h3 className="text-sm font-bold text-indigo-950 flex items-center gap-2 mb-4"><ImageIcon size={18} className="text-indigo-500" /> Zdjęcia i Załączniki</h3>
+                                 
+                                 <div className="space-y-6">
+                                    {mainAttachments.length > 0 && (
+                                        <div>
+                                            <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-3">Załączniki główne zgłoszenia</h4>
+                                            <div className="grid grid-cols-2 gap-3">
+                                                {mainAttachments.map(att => (
+                                                    <AttachmentItem key={att.id} att={att} onDelete={() => onDeleteAttachment(att)} onPreview={onPreview} canModify={canModifyItem(att.authorEmail)} />
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {updateAttachments.length > 0 && (
+                                        <div className={mainAttachments.length > 0 ? "pt-4 border-t border-slate-100" : ""}>
+                                            <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-3 flex items-center gap-1.5"><MessageSquare size={12} className="text-indigo-400"/> Z wątków dyskusji</h4>
+                                            <div className="grid grid-cols-2 gap-3">
+                                                {updateAttachments.map(att => (
+                                                    <div key={att.id} className="relative group bg-slate-50 border border-slate-200 rounded-xl p-1 flex flex-col hover:border-indigo-200 hover:shadow-sm transition-all shadow-sm">
+                                                        <AttachmentItem att={att} onDelete={() => onDeleteAttachment(att)} onPreview={onPreview} canModify={canModifyItem(att.authorEmail)} />
+                                                        <div className="mt-1.5 px-1 pb-1">
+                                                            <p className="text-[8px] uppercase tracking-wider text-slate-400 font-bold leading-none mb-0.5">Z wpisu:</p>
+                                                            <p className="text-[10px] text-indigo-700 font-black tracking-tight">{new Date(att.updateDate).toLocaleString([], {year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit'})}</p>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {attachments.length === 0 && (
+                                        <div className="text-center p-6 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                                            <p className="text-xs text-slate-500 font-medium">Brak plików powiązanych ze zgłoszeniem.</p>
+                                        </div>
+                                    )}
+
+                                    <div className="relative">
+                                        <label className={`w-full flex flex-col items-center justify-center p-4 border-2 border-dashed border-slate-200 rounded-xl cursor-pointer hover:border-indigo-300 hover:bg-indigo-50/50 transition-all ${isUploading ? 'pointer-events-none opacity-70' : ''}`}>
+                                            <input type="file" multiple accept="image/*,.pdf,.doc,.docx" className="hidden" onChange={(e) => onUploadAttachment(e, ticket.id)} disabled={isUploading || isSubmittingAction} />
+                                            {isUploading ? (
+                                                <div className="text-center w-full px-2">
+                                                    <Loader2 size={20} className="mx-auto mb-1 text-indigo-500 animate-spin" />
+                                                    <div className="w-full bg-slate-200 rounded-full h-1 mt-2 overflow-hidden"><div className="bg-indigo-500 h-1 transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div></div>
+                                                </div>
+                                            ) : (
+                                                <div className="text-center">
+                                                    <Plus size={20} className="mx-auto text-slate-400 mb-1" />
+                                                    <span className="text-xs font-bold text-slate-500">Dołącz załączniki</span>
+                                                </div>
+                                            )}
+                                        </label>
+                                    </div>
+                                 </div>
+                             </div>
+
+                             <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                                <h3 className="text-sm font-bold text-indigo-950 flex items-center gap-2 mb-4">
+                                    <RotateCcw size={18} className="text-indigo-500" /> Rejestr aktywności
+                                </h3>
+                                <div className="space-y-4 max-h-96 overflow-y-auto pr-2 scrollbar-hide">
+                                    {ticketLogs.sort((a,b) => new Date(b.date) - new Date(a.date)).map(log => {
+                                        const parsedDate = new Date(log.date);
+                                        const isExpanded = expandedLogId === log.id;
+                                        const lines = log.description.split('\n');
+                                        const summary = lines[0];
+                                        const details = lines.slice(1).join('\n').trim();
+                                        const hasDetails = details.length > 0;
+
+                                        return (
+                                            <div key={log.id} className="relative pl-4 border-l-2 border-indigo-100 pb-4 last:border-0 last:pb-0">
+                                                <div className="absolute w-2.5 h-2.5 bg-indigo-400 rounded-full -left-[6px] top-1 border-2 border-white"></div>
+                                                <div className="text-[10px] text-slate-400 font-bold mb-1">{parsedDate.toLocaleDateString()} {parsedDate.toLocaleTimeString()}</div>
+                                                <div 
+                                                    className={`text-xs text-slate-700 font-medium ${hasDetails ? 'cursor-pointer hover:text-indigo-600 transition-colors' : ''} flex items-start justify-between group`}
+                                                    onClick={() => hasDetails && setExpandedLogId(isExpanded ? null : log.id)}
+                                                >
+                                                    <div className="flex-1">
+                                                        <span className="font-semibold">{summary}</span>
+                                                    </div>
+                                                    {hasDetails && (
+                                                        <button className="text-slate-400 group-hover:text-indigo-600 transition-colors shrink-0 ml-2" title="Pokaż/ukryj szczegóły">
+                                                            {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                                                        </button>
+                                                    )}
+                                                    {canModifyItem(log.authorEmail) && (
+                                                        <button onClick={(e) => { e.stopPropagation(); onDeleteLog(log.id); }} className="text-slate-400 hover:text-red-600 transition-colors shrink-0 ml-2" title="Usuń z historii trwale">
+                                                            <Trash2 size={12} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                {isExpanded && hasDetails && (
+                                                    <div className="mt-2 p-3 bg-slate-50 rounded-xl text-xs text-slate-600 whitespace-pre-wrap leading-relaxed border border-slate-100 animate-in fade-in slide-in-from-top-1 duration-200">
+                                                        {details}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )
+                                    })}
+                                    {ticketLogs.length === 0 && <p className="text-xs text-slate-400 italic">Brak zarejestrowanej historii.</p>}
+                                </div>
+                             </div>
+                         </div>
+                     </div>
+                </div>
+            );
+        };
 
         const RestaurantDetailContent = ({ 
           r, tickets, tasks, notes, docs, historyLogs, activeDetailTab, setActiveDetailTab, setActiveTab, 
-          setIsSettingsOpen, isSettingsOpen, setIsDeleteModalOpen, onEditClick, 
-          onCreateTicket, onEditTicket, onShareTicket, 
+          setIsSettingsOpen, isSettingsOpen, setIsDeleteModalOpen, onEditClick, canModifyItem,
+          onCreateTicket, onOpenTicket, onShareTicket, 
           isNoteModalOpen, setIsNoteModalOpen, newNote, setNewNote, onAddNote, onDeleteNote, onEditNote,
-          onAddTask, onEditTask, onDeleteTask, onToggleTask, isSubmittingAction 
+          onAddTask, onEditTask, onDeleteTask, onToggleTask, isSubmittingAction,
+          onFileUpload, isUploadingDoc, uploadProgress, onDeleteDoc, onPreview, onDeleteLog
         }) => {
           const [report, setReport] = useState('');
           const [loading, setLoading] = useState(false);
@@ -401,7 +1134,7 @@
           };
 
           const counts = {
-            docs: docs.filter(d => d.restaurantId === r.id || d.restaurantId === null).length,
+            docs: docs.filter(d => d.restaurantId === r.id).length,
             tickets: tickets.filter(t => t.restaurantId === r.id).length,
             tasks: tasks.filter(t => t.restaurantId === r.id).length,
             notes: notes.filter(n => n.restaurantId === r.id).length
@@ -409,7 +1142,7 @@
 
           return (
             <div className="space-y-6 animate-in fade-in duration-300">
-              <button onClick={() => setActiveTab('restaurants')} className="text-indigo-600 font-semibold text-sm flex items-center gap-1 hover:underline group"><ChevronRight size={16} className="rotate-180 group-hover:-translate-x-1 transition-transform" /> Powrót do bazy</button>
+              <button onClick={() => setActiveTab('restaurants')} className="text-indigo-600 font-semibold text-sm flex items-center gap-1 hover:underline group"><ChevronLeft size={16} className="group-hover:-translate-x-1 transition-transform" /> Powrót do bazy</button>
               
               <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden">
                  <div className={`absolute top-0 left-0 bottom-0 w-2 ${BRANDS[r.brand]?.color || 'bg-slate-400'}`} />
@@ -422,15 +1155,19 @@
                     </div>
                   </div>
                   <div className="flex items-center gap-2 relative">
-                    <div className="relative">
-                      <button onClick={() => setIsSettingsOpen(!isSettingsOpen)} className={`p-2 rounded-lg transition-colors ${isSettingsOpen ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}><Settings size={20} /></button>
-                      {isSettingsOpen && (
-                        <div className="absolute right-0 mt-3 w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-20 overflow-hidden text-left">
-                          <button onClick={() => setIsDeleteModalOpen(true)} className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 font-semibold transition-colors"><Trash2 size={14} /> Usuń restaurację</button>
-                        </div>
-                      )}
-                    </div>
-                    <button onClick={onEditClick} className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-bold shadow-md hover:bg-indigo-700 transition-all flex items-center gap-2"><Edit size={16} /> Edytuj Lokal</button>
+                    {canModifyItem(r.authorEmail) && (
+                        <>
+                            <div className="relative">
+                              <button onClick={() => setIsSettingsOpen(!isSettingsOpen)} className={`p-2 rounded-lg transition-colors ${isSettingsOpen ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}><Settings size={20} /></button>
+                              {isSettingsOpen && (
+                                <div className="absolute right-0 mt-3 w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-20 overflow-hidden text-left">
+                                  <button onClick={() => setIsDeleteModalOpen(true)} className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 font-semibold transition-colors"><Trash2 size={14} /> Usuń restaurację</button>
+                                </div>
+                              )}
+                            </div>
+                            <button onClick={onEditClick} className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-bold shadow-md hover:bg-indigo-700 transition-all flex items-center gap-2"><Edit size={16} /> Edytuj Lokal</button>
+                        </>
+                    )}
                   </div>
                 </div>
 
@@ -447,10 +1184,27 @@
               <div className="mt-6">
                 {activeDetailTab === 'docs' && (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-in fade-in duration-200">
-                    {docs.filter(d => d.restaurantId === r.id || d.restaurantId === null).map(doc => (<DocItem key={doc.id} title={doc.title} type={doc.type} size={doc.size} />))}
-                    <div className="border-2 border-dashed border-slate-200 rounded-xl flex items-center justify-center p-6 text-slate-400 hover:border-indigo-300 hover:text-indigo-500 transition-all cursor-pointer group">
-                      <div className="text-center group-hover:scale-105 transition-transform"><Plus size={24} className="mx-auto mb-1" /><p className="text-xs font-bold uppercase tracking-widest text-indigo-950/40">Dodaj Dokument</p></div>
-                    </div>
+                    {docs.filter(d => d.restaurantId === r.id).map(doc => (
+                      <DocItem key={doc.id} title={doc.title} type={doc.type} size={doc.size} url={doc.url} onDelete={() => onDeleteDoc(doc)} onPreview={onPreview} canModify={canModifyItem(doc.authorEmail)} />
+                    ))}
+                    
+                    <label className={`border-2 border-dashed border-slate-200 rounded-xl flex items-center justify-center p-6 text-slate-400 hover:border-indigo-300 hover:text-indigo-500 transition-all cursor-pointer group relative overflow-hidden ${isUploadingDoc ? 'pointer-events-none' : ''}`}>
+                      <input type="file" multiple className="hidden" onChange={onFileUpload} disabled={isUploadingDoc} />
+                      {isUploadingDoc ? (
+                        <div className="text-center w-full relative z-10 px-4">
+                            <Loader2 size={24} className="mx-auto mb-2 animate-spin text-indigo-500" />
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-950/60 mb-2">Wysyłanie...</p>
+                            <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                                <div className="bg-indigo-500 h-1.5 transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div>
+                            </div>
+                        </div>
+                      ) : (
+                        <div className="text-center group-hover:scale-105 transition-transform">
+                            <Plus size={24} className="mx-auto mb-1" />
+                            <p className="text-xs font-bold uppercase tracking-widest text-indigo-950/40">Dodaj Dokumenty</p>
+                        </div>
+                      )}
+                    </label>
                   </div>
                 )}
 
@@ -462,12 +1216,12 @@
                     </div>
                     {tickets.filter(t => t.restaurantId === r.id).length > 0 ? (
                       tickets.filter(t => t.restaurantId === r.id).map(t => (
-                        <div key={t.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex justify-between items-center group text-indigo-950">
+                        <div key={t.id} onClick={() => onOpenTicket(t)} className="cursor-pointer bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex justify-between items-center group text-indigo-950 hover:border-indigo-200 hover:shadow-md transition-all">
                           <div className="flex gap-3 items-start">
                             <div className={`p-2 rounded-lg ${t.priority === 'Wysoki' ? 'bg-red-50 text-red-600' : 'bg-slate-50 text-slate-500'}`}><AlertTriangle size={18} /></div>
                             <div>
-                              <div className="flex items-center gap-2"><p className="text-sm font-bold leading-tight">{t.title}</p><span className={`text-[9px] px-1.5 py-0.5 rounded font-black uppercase tracking-tight ${t.status === 'Zakończone' ? 'bg-green-100 text-green-700' : 'bg-indigo-50 text-indigo-700'}`}>{t.status}</span></div>
-                              <p className="text-xs text-slate-500 mt-1 leading-relaxed">{t.description}</p>
+                              <div className="flex items-center gap-2"><p className="text-sm font-bold leading-tight group-hover:text-indigo-600 transition-colors">{t.title}</p><span className={`text-[9px] px-1.5 py-0.5 rounded font-black uppercase tracking-tight ${t.status === 'Zakończone' ? 'bg-green-100 text-green-700' : 'bg-indigo-50 text-indigo-700'}`}>{t.status}</span></div>
+                              <p className="text-xs text-slate-500 mt-1 leading-relaxed line-clamp-1">{t.description}</p>
                               <div className="flex gap-4 mt-2 items-center">
                                 <span className={`text-[10px] font-bold uppercase ${t.priority === 'Wysoki' ? 'text-red-600' : 'text-slate-400'}`}>Priorytet: {t.priority}</span>
                                 <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1"><Calendar size={10} /> {t.date}</span>
@@ -475,8 +1229,8 @@
                             </div>
                           </div>
                           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                            <button onClick={() => onShareTicket(t)} className="p-2 text-slate-400 hover:text-indigo-600 bg-slate-50 rounded-lg transition-colors" title="Skopiuj link"><Share2 size={16} /></button>
-                            <button onClick={() => onEditTicket(t)} className="p-2 text-slate-400 hover:text-indigo-600 bg-slate-50 rounded-lg transition-colors" title="Edytuj"><Edit size={16} /></button>
+                            <button onClick={(e) => { e.stopPropagation(); onShareTicket(t, r.name); }} className="p-2 text-slate-400 hover:text-indigo-600 bg-slate-50 rounded-lg transition-colors" title="Skopiuj link"><Share2 size={16} /></button>
+                            <button className="p-2 text-slate-400 hover:text-indigo-600 bg-slate-50 rounded-lg transition-colors" title="Otwórz zgłoszenie"><ExternalLink size={16} /></button>
                           </div>
                         </div>
                       ))
@@ -505,8 +1259,12 @@
                                      </div>
                                   </div>
                                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                                     <button onClick={() => onEditTask(t)} className="p-1.5 text-slate-400 hover:text-indigo-600 bg-slate-50 rounded-lg transition-colors" title="Edytuj"><Pencil size={14} /></button>
-                                     <button onClick={() => onDeleteTask(t)} className="p-1.5 text-slate-400 hover:text-red-600 bg-slate-50 rounded-lg transition-colors" title="Usuń"><Trash2 size={14} /></button>
+                                     {canModifyItem(t.authorEmail) && (
+                                         <>
+                                            <button onClick={() => onEditTask(t)} className="p-1.5 text-slate-400 hover:text-indigo-600 bg-slate-50 rounded-lg transition-colors" title="Edytuj"><Pencil size={14} /></button>
+                                            <button onClick={() => onDeleteTask(t)} className="p-1.5 text-slate-400 hover:text-red-600 bg-slate-50 rounded-lg transition-colors" title="Usuń"><Trash2 size={14} /></button>
+                                         </>
+                                     )}
                                   </div>
                                </div>
                             ))}
@@ -521,18 +1279,26 @@
                 {activeDetailTab === 'notes' && (
                   <div className="space-y-4 animate-in fade-in duration-200">
                     <div className="flex justify-between items-center px-1">
-                      <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest text-indigo-900/40 text-indigo-950/40">Twoje Notatki</h4>
+                      <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest text-indigo-900/40 text-indigo-950/40">Wspólne Notatki</h4>
                       <button onClick={() => setIsNoteModalOpen(true)} className="bg-amber-100 text-amber-700 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors hover:bg-amber-200"><Plus size={14} /> Nowa Notatka</button>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {notes.filter(n => n.restaurantId === r.id).map(note => (
                         <div key={note.id} className="bg-amber-50 p-4 rounded-xl border border-amber-100 shadow-sm group relative text-indigo-950">
-                          <div className="flex justify-between items-start mb-2 pr-16"><h5 className="font-bold text-amber-900 text-sm">{note.title}</h5></div>
-                          <div className="absolute top-3 right-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                            <button onClick={() => onEditNote(note)} className="p-1.5 bg-amber-100 text-amber-600 hover:bg-indigo-600 hover:text-white rounded-lg transition-all shadow-sm" title="Edytuj"><Pencil size={12} /></button>
-                            <button onClick={() => onDeleteNote(note)} className="p-1.5 bg-amber-100 text-amber-400 hover:bg-red-600 hover:text-white rounded-lg transition-all shadow-sm" title="Usuń"><Trash2 size={12} /></button>
+                          <div className="flex justify-between items-start mb-2 pr-16">
+                              <div>
+                                  <h5 className="font-bold text-amber-900 text-sm">{note.title}</h5>
+                                  <span className="text-[9px] font-medium text-amber-600 block leading-none mt-1">Autor: {note.authorEmail || 'Nieznany'}</span>
+                              </div>
                           </div>
-                          <p className="text-xs text-amber-800 leading-relaxed break-words whitespace-pre-wrap">{note.content}</p>
+                          
+                          {canModifyItem(note.authorEmail) && (
+                              <div className="absolute top-3 right-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                <button onClick={() => onEditNote(note)} className="p-1.5 bg-amber-100 text-amber-600 hover:bg-indigo-600 hover:text-white rounded-lg transition-all shadow-sm" title="Edytuj"><Pencil size={12} /></button>
+                                <button onClick={() => onDeleteNote(note)} className="p-1.5 bg-amber-100 text-amber-400 hover:bg-red-600 hover:text-white rounded-lg transition-all shadow-sm" title="Usuń"><Trash2 size={12} /></button>
+                              </div>
+                          )}
+                          <p className="text-xs text-amber-800 leading-relaxed break-words whitespace-pre-wrap mt-2">{note.content}</p>
                         </div>
                       ))}
                       {notes.filter(n => n.restaurantId === r.id).length === 0 && <div className="col-span-2 text-center py-8"><p className="text-slate-400 text-sm italic">Brak notatek dla tego lokalu.</p></div>}
@@ -551,15 +1317,21 @@
                                      if(type==='ticket') return <AlertTriangle size={14} className="text-red-500"/>;
                                      if(type==='task') return <CheckSquare size={14} className="text-green-500"/>;
                                      if(type==='note') return <StickyNote size={14} className="text-amber-500"/>;
+                                     if(type==='doc') return <FileText size={14} className="text-blue-500"/>;
                                      return <Store size={14} className="text-indigo-500"/>;
                                  };
                                  const parsedDate = new Date(log.date);
                                  return (
                                  <div key={log.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
                                     <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white bg-slate-50 text-slate-500 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">{getIcon(log.type)}</div>
-                                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
-                                       <div className="flex items-center justify-between space-x-2 mb-1">
-                                          <div className="font-bold text-slate-800 text-xs">{log.description}</div>
+                                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-white p-4 rounded-xl border border-slate-100 shadow-sm relative">
+                                       {canModifyItem(log.authorEmail) && (
+                                           <button onClick={() => onDeleteLog(log.id)} className="absolute top-2 right-2 p-1 text-slate-300 hover:text-red-600 transition-colors opacity-0 group-hover:opacity-100" title="Usuń z historii">
+                                               <Trash2 size={12} />
+                                           </button>
+                                       )}
+                                       <div className="flex items-center justify-between space-x-2 mb-1 pr-4">
+                                          <div className="font-bold text-slate-800 text-xs whitespace-pre-wrap">{log.description}</div>
                                           <time className="font-caveat font-medium text-[10px] text-slate-400">{parsedDate.toLocaleDateString()} {parsedDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</time>
                                        </div>
                                     </div>
@@ -655,68 +1427,6 @@
           </div>
         );
 
-        const TicketModal = ({ title, data, setData, onSave, onCancel, isEdit, isSubmitting }) => {
-          const [aiTip, setAiTip] = useState('');
-          const [loading, setLoading] = useState(false);
-
-          const suggestSolution = async () => {
-            if (!data.title || !data.description) return;
-            setLoading(true);
-            const result = await callGemini(`Zgłoszenie: ${data.title}. Opis: ${data.description}. Zaproponuj 3 konkretne kroki naprawcze dla personelu restauracji.`, "Jesteś ekspertem serwisowym sieci restauracji.");
-            setAiTip(result);
-            setLoading(false);
-          };
-
-          return (
-            <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
-              <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onCancel} />
-              <div className="bg-white rounded-3xl p-8 w-full max-w-md relative shadow-2xl animate-in zoom-in duration-200 max-h-[90vh] overflow-y-auto text-indigo-950">
-                <h3 className="text-xl font-black mb-6 tracking-tight text-indigo-900">{title}</h3>
-                <form onSubmit={onSave} className="space-y-4">
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 tracking-wider text-indigo-950/60">Tytuł Zgłoszenia</label>
-                    <input required className="w-full mt-1 p-3 bg-slate-50 border-none rounded-xl outline-none text-sm text-indigo-950" value={data.title || ''} onChange={e => setData({...data, title: e.target.value})} />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 tracking-wider text-indigo-950/60">Priorytet</label>
-                      <select className="w-full mt-1 p-3 bg-slate-50 border-none rounded-xl outline-none text-sm font-semibold text-indigo-950" value={data.priority || 'Średni'} onChange={e => setData({...data, priority: e.target.value})}>
-                        <option>Niski</option><option>Średni</option><option>Wysoki</option>
-                      </select>
-                    </div>
-                    {isEdit && (
-                      <div>
-                        <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 tracking-wider text-indigo-950/60">Status</label>
-                        <select className="w-full mt-1 p-3 bg-slate-50 border-none rounded-xl outline-none text-sm font-bold text-indigo-600" value={data.status || 'Nowe'} onChange={e => setData({...data, status: e.target.value})}>
-                          <option>Nowe</option><option>W realizacji</option><option>Wstrzymane</option><option>Zakończone</option>
-                        </select>
-                      </div>
-                    )}
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 tracking-wider text-indigo-950/60">Opis problemu</label>
-                    <textarea rows="4" className="w-full mt-1 p-3 bg-slate-50 border-none rounded-xl outline-none text-sm resize-none leading-relaxed text-indigo-950" value={data.description || ''} onChange={e => setData({...data, description: e.target.value})} />
-                  </div>
-                  
-                  <div className="pt-2">
-                    <button type="button" onClick={suggestSolution} disabled={loading || !data.description} className="flex items-center gap-2 text-xs font-bold text-indigo-600 bg-indigo-50 px-4 py-2 rounded-xl hover:bg-indigo-100 transition-all disabled:opacity-50 shadow-sm">
-                      {loading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />} ✨ Sugeruj rozwiązanie AI
-                    </button>
-                    {aiTip && (<div className="mt-3 p-4 bg-indigo-50/50 border border-indigo-100 rounded-2xl animate-in slide-in-from-top-2"><div className="text-xs text-indigo-900 leading-relaxed whitespace-pre-wrap">{aiTip}</div></div>)}
-                  </div>
-
-                  <div className="flex gap-3 pt-4 border-t border-slate-100">
-                    <button type="button" onClick={onCancel} className="flex-1 py-3 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Anuluj</button>
-                    <button type="submit" disabled={isSubmitting} className="flex-1 py-3 text-sm font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all disabled:opacity-50 flex justify-center items-center gap-2">
-                      {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : (isEdit ? 'Zapisz zmiany' : 'Utwórz')}
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          );
-        };
-
         const TaskModal = ({ title, data, setData, onSave, onCancel, isEdit, isSubmitting }) => (
           <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onCancel} />
@@ -754,10 +1464,14 @@
 
         const App = () => {
           const [user, setUser] = useState(null);
+          const [systemUsers, setSystemUsers] = useState([]);
+          const [currentUserProfile, setCurrentUserProfile] = useState(null);
           const [isConnecting, setIsConnecting] = useState(true);
           const [dbError, setDbError] = useState(null);
           
           const [isSubmittingAction, setIsSubmittingAction] = useState(false);
+          const [isUploadingDoc, setIsUploadingDoc] = useState(false);
+          const [uploadProgress, setUploadProgress] = useState(0);
 
           const [isAuthMode, setIsAuthMode] = useState(true);
           const [authEmail, setAuthEmail] = useState('');
@@ -772,13 +1486,17 @@
           const [tasks, setTasks] = useState([]);
           const [notes, setNotes] = useState([]);
           const [docs, setDocs] = useState([]);
+          const [attachments, setAttachments] = useState([]);
           const [historyLogs, setHistoryLogs] = useState([]); 
           const [searchQuery, setSearchQuery] = useState('');
           const [toast, setToast] = useState(null);
           const [toastType, setToastType] = useState('info'); 
           
           const [selectedRestaurant, setSelectedRestaurant] = useState(null);
+          const [selectedTicket, setSelectedTicket] = useState(null); 
           const [activeDetailTab, setActiveDetailTab] = useState('docs');
+          
+          const [previewFile, setPreviewFile] = useState(null);
           
           const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
           const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -789,23 +1507,21 @@
           
           const [isAddRestaurantModalOpen, setIsAddRestaurantModalOpen] = useState(false);
           const [isEditRestaurantModalOpen, setIsEditRestaurantModalOpen] = useState(false);
-          
-          const [isAddTicketModalOpen, setIsAddTicketModalOpen] = useState(false);
-          const [isEditTicketModalOpen, setIsEditTicketModalOpen] = useState(false);
 
           const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
           const [isEditTaskModalOpen, setIsEditTaskModalOpen] = useState(false);
           const [taskToDelete, setTaskToDelete] = useState(null);
           
+          const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+          const [passwordUser, setPasswordUser] = useState(null);
+          const [newAdminPassword, setNewAdminPassword] = useState('');
+
           const [newNote, setNewNote] = useState({ title: '', content: '' });
           const [editNoteData, setEditNoteData] = useState(null);
           
           const [newRestaurant, setNewRestaurant] = useState({ name: '', brand: 'KFC', city: '', address: '', ip: '', email: '' });
           const [editRestaurantData, setEditRestaurantData] = useState(null);
           
-          const [newTicketData, setNewTicketData] = useState({ title: '', priority: 'Średni', description: '' });
-          const [editTicketData, setEditTicketData] = useState(null);
-
           const [newTaskData, setNewTaskData] = useState({ title: '', deadline: new Date().toISOString().split('T')[0], completed: false });
           const [editTaskData, setEditTaskData] = useState(null);
           
@@ -813,12 +1529,12 @@
           const [ticketSortConfig, setTicketSortConfig] = useState({ key: 'date', direction: 'desc' });
           const [columnFilters, setColumnFilters] = useState({ brand: '', name: '', city: '' });
 
-          // --- AUTOMATYCZNE ZAMYKANIE ROZWIJANYCH MENU ---
           useEffect(() => {
             setIsSettingsOpen(false);
           }, [activeTab, selectedRestaurant, activeDetailTab]);
 
-          // --- FIREBASE INIT ---
+          const getPublicRef = (collectionName) => db.collection('artifacts').doc(appId).collection('public').doc('data').collection(collectionName);
+
           useEffect(() => {
             if (!firebaseConfig) {
                 setDbError("Brak pliku config.js lub błędna konfiguracja!");
@@ -831,49 +1547,83 @@
                 return;
             }
 
-            const unsubscribe = auth.onAuthStateChanged((currentUser) => {
+            const unsubscribe = auth.onAuthStateChanged(async (currentUser) => {
               setUser(currentUser);
+              
+              if (currentUser && db) {
+                  try {
+                      const userRef = getPublicRef('users').doc(currentUser.uid);
+                      const doc = await userRef.get();
+                      
+                      if (!doc.exists) {
+                          const allUsers = await getPublicRef('users').limit(1).get();
+                          const role = allUsers.empty ? 'Administrator' : 'Serwisant';
+                          await userRef.set({
+                              email: currentUser.email,
+                              role: role,
+                              createdAt: new Date().toISOString()
+                          });
+                      }
+                  } catch (e) {
+                      console.error("Błąd tworzenia profilu użytkownika:", e);
+                  }
+              }
+
               setIsConnecting(false);
             });
             
             return () => unsubscribe();
           }, []);
 
-          // --- FIREBASE LISTENERS ---
           useEffect(() => {
             if (!user || !db) return;
             
-            const uid = user.uid;
-            const resRef = db.collection('artifacts').doc(appId).collection('users').doc(uid).collection('restaurants');
-            const tickRef = db.collection('artifacts').doc(appId).collection('users').doc(uid).collection('tickets');
-            const taskRef = db.collection('artifacts').doc(appId).collection('users').doc(uid).collection('tasks');
-            const noteRef = db.collection('artifacts').doc(appId).collection('users').doc(uid).collection('notes');
-            const histRef = db.collection('artifacts').doc(appId).collection('users').doc(uid).collection('history');
-
             const handleFirebaseError = (err) => {
                 console.error("Firebase listen error", err);
                 if(err.code === 'permission-denied') showToast("BRAK UPRAWNIEŃ FIRESTORE!", "error");
             };
 
-            const unsubRes = resRef.onSnapshot(snap => setRestaurants(snap.docs.map(d => ({ id: d.id, ...d.data() }))), handleFirebaseError);
-            const unsubTickets = tickRef.onSnapshot(snap => setTickets(snap.docs.map(d => ({ id: d.id, ...d.data() }))), handleFirebaseError);
-            const unsubTasks = taskRef.onSnapshot(snap => setTasks(snap.docs.map(d => ({ id: d.id, ...d.data() }))), handleFirebaseError);
-            const unsubNotes = noteRef.onSnapshot(snap => setNotes(snap.docs.map(d => ({ id: d.id, ...d.data() }))), handleFirebaseError);
-            const unsubHist = histRef.onSnapshot(snap => setHistoryLogs(snap.docs.map(d => ({ id: d.id, ...d.data() }))), handleFirebaseError);
+            const unsubUsers = getPublicRef('users').onSnapshot(snap => setSystemUsers(snap.docs.map(d => ({ id: d.id, ...d.data() }))), handleFirebaseError);
+            const unsubRes = getPublicRef('restaurants').onSnapshot(snap => setRestaurants(snap.docs.map(d => ({ id: d.id, ...d.data() }))), handleFirebaseError);
+            const unsubTickets = getPublicRef('tickets').onSnapshot(snap => setTickets(snap.docs.map(d => ({ id: d.id, ...d.data() }))), handleFirebaseError);
+            const unsubTasks = getPublicRef('tasks').onSnapshot(snap => setTasks(snap.docs.map(d => ({ id: d.id, ...d.data() }))), handleFirebaseError);
+            const unsubDocs = getPublicRef('docs').onSnapshot(snap => setDocs(snap.docs.map(d => ({ id: d.id, ...d.data() }))), handleFirebaseError);
+            const unsubAtt = getPublicRef('attachments').onSnapshot(snap => setAttachments(snap.docs.map(d => ({ id: d.id, ...d.data() }))), handleFirebaseError);
+            const unsubHist = getPublicRef('history').onSnapshot(snap => setHistoryLogs(snap.docs.map(d => ({ id: d.id, ...d.data() }))), handleFirebaseError);
+            const unsubNotes = getPublicRef('notes').onSnapshot(snap => setNotes(snap.docs.map(d => ({ id: d.id, ...d.data() }))), handleFirebaseError);
 
-            return () => { unsubRes(); unsubTickets(); unsubTasks(); unsubNotes(); unsubHist(); };
+            return () => { unsubUsers(); unsubRes(); unsubTickets(); unsubTasks(); unsubNotes(); unsubDocs(); unsubAtt(); unsubHist(); };
           }, [user]);
 
-          // --- LOGOWANIE I HISTORIA ZAPISU ---
-          const logActivity = async (restaurantId, type, description) => {
-             if (!db || !user || !restaurantId) return;
+          useEffect(() => {
+            if (systemUsers.length > 0 && user) {
+                setCurrentUserProfile(systemUsers.find(u => u.id === user.uid));
+            }
+          }, [systemUsers, user]);
+
+          // --- LOGIKA UPRAWNIEŃ (RBAC) ---
+          const canModifyItem = (itemAuthorEmail) => {
+             if (!currentUserProfile || !user) return false;
+             if (currentUserProfile.role === 'Administrator') return true;
+             if (itemAuthorEmail === user.email) return true;
+             if (!itemAuthorEmail) return true; 
+             return false;
+          };
+
+          const logActivity = async (restaurantId, type, description, ticketId = null) => {
+             if (!db || !user) return;
              try {
-                 await db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('history').add({
-                     restaurantId,
-                     type, // 'ticket', 'note', 'task', 'restaurant'
-                     description,
-                     date: new Date().toISOString()
-                 });
+                 const authorData = currentUserProfile?.email ? `${currentUserProfile.email} (${currentUserProfile.role})` : user.email;
+                 const payload = {
+                     restaurantId: restaurantId || 'global',
+                     type, 
+                     description: `${authorData} - ${description}`,
+                     date: new Date().toISOString(),
+                     authorEmail: user.email
+                 };
+                 if (ticketId) payload.ticketId = ticketId;
+                 
+                 await getPublicRef('history').add(payload);
              } catch(e) { console.error("History log fail", e); }
           };
 
@@ -882,9 +1632,7 @@
             setIsAuthLoading(true);
             setAuthErrorLocal('');
             try {
-              // Ustawienie persystencji (Zapamiętaj mnie)
               await auth.setPersistence(rememberMe ? firebase.auth.Auth.Persistence.LOCAL : firebase.auth.Auth.Persistence.SESSION);
-              
               if (isAuthMode) {
                 await auth.signInWithEmailAndPassword(authEmail, authPassword);
               } else {
@@ -901,22 +1649,82 @@
           const showToast = (msg, type = 'info') => { setToast(msg); setToastType(type); setTimeout(() => setToast(null), 5000); };
           const handleResetFilters = () => { setColumnFilters({ brand: '', name: '', city: '' }); setSearchQuery(''); };
 
-          const getCollRef = (collectionName) => db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection(collectionName);
           const handleFirebaseWriteError = (err) => {
               if(err.code === 'permission-denied') showToast("Firebase zablokował zapis!", "error");
               else showToast("Błąd zapisu: " + err.message, "error");
           };
 
-          // --- RESTAURACJE ---
+          const handleRoleChange = async (userId, newRole) => {
+              if(!db || !currentUserProfile || currentUserProfile.role !== 'Administrator') return;
+              try {
+                  await getPublicRef('users').doc(userId).update({ role: newRole });
+                  showToast("Zmieniono uprawnienia użytkownika.");
+              } catch(err) { handleFirebaseWriteError(err); }
+          };
+
+          const handleSendPasswordResetEmail = async (emailToReset) => {
+              setIsSubmittingAction(true);
+              try {
+                  await auth.sendPasswordResetEmail(emailToReset);
+                  showToast(`Wysłano oficjalny link resetujący na e-mail: ${emailToReset}`);
+              } catch (e) {
+                  showToast("Błąd wysyłania linku: " + e.message, "error");
+              } finally {
+                  setIsSubmittingAction(false);
+              }
+          };
+
+          const handleSimulatePasswordChange = async (e) => {
+              e.preventDefault();
+              if(!newAdminPassword || !passwordUser) return;
+              setIsSubmittingAction(true);
+              
+              try {
+                  await getPublicRef('users').doc(passwordUser.id).update({
+                      adminRequestedNewPassword: newAdminPassword,
+                      lastPasswordChangeSimulated: new Date().toISOString()
+                  });
+                  await logActivity('global', 'system', `Administrator zaktualizował profil bezpieczeństwa dla: ${passwordUser.email}`);
+                  showToast("Zmiana zapisana w bazie (Wymagane zew. narzędzia do wymuszenia w Auth).", "info");
+                  setIsPasswordModalOpen(false);
+                  setNewAdminPassword('');
+              } catch (e) {
+                  handleFirebaseWriteError(e);
+              } finally {
+                  setIsSubmittingAction(false);
+              }
+          };
+
+          const handleAdminForceDelete = async (collection, item) => {
+              const label = item.title || item.name || 'Wybrany wpis';
+              if(!window.confirm(`[ZARZĄDZANIE BAZĄ DANYCH]\nCzy na pewno chcesz bezpowrotnie usunąć wpis: "${label}"?`)) return;
+              
+              setIsSubmittingAction(true);
+              try {
+                  await getPublicRef(collection).doc(item.id).delete();
+                  await logActivity('global', 'system', `[SUPER ADMIN] Wymuszone usunięcie z kolekcji ${collection}: ${label}`);
+                  showToast(`Usunięto "${label}" z bazy danych.`);
+              } catch(e) {
+                  handleFirebaseWriteError(e);
+              } finally {
+                  setIsSubmittingAction(false);
+              }
+          };
+
+          const handleOpenTicket = (ticket) => {
+              const tRest = restaurants.find(r => r.id === ticket.restaurantId);
+              if(tRest) setSelectedRestaurant(tRest);
+              setSelectedTicket(ticket);
+              setActiveTab('ticket_detail');
+          };
+
           const handleAddRestaurant = async (e) => {
             e.preventDefault();
             if(!db || isSubmittingAction) return;
 
             const newName = (newRestaurant.name || '').trim();
-            const nameExists = restaurants.some(r => r.name.trim().toLowerCase() === newName.toLowerCase());
-            if (nameExists) {
-                showToast("Restauracja o takiej nazwie już istnieje w bazie!", "error");
-                return;
+            if (restaurants.some(r => r.name.trim().toLowerCase() === newName.toLowerCase())) {
+                showToast("Restauracja o takiej nazwie już istnieje w bazie!", "error"); return;
             }
 
             setIsSubmittingAction(true);
@@ -924,10 +1732,11 @@
                const dataToSave = {
                  name: newName, brand: newRestaurant.brand || 'KFC',
                  city: newRestaurant.city || '', address: newRestaurant.address || '',
-                 ip: newRestaurant.ip || '', email: newRestaurant.email || ''
+                 ip: newRestaurant.ip || '', email: newRestaurant.email || '',
+                 authorEmail: user.email
                };
-               const docRef = await getCollRef('restaurants').add(dataToSave);
-               await logActivity(docRef.id, 'restaurant', `Dodano nowy lokal do systemu.`);
+               const docRef = await getPublicRef('restaurants').add(dataToSave);
+               await logActivity(docRef.id, 'restaurant', `Dodano nowy lokal: ${newName}`);
                setNewRestaurant({ name: '', brand: 'KFC', city: '', address: '', ip: '', email: '' });
                setIsAddRestaurantModalOpen(false);
                showToast("Restauracja dodana.");
@@ -937,20 +1746,18 @@
           const handleUpdateRestaurant = async (e) => {
             e.preventDefault();
             if(!db || isSubmittingAction) return;
-
+            
             const updatedName = (editRestaurantData.name || '').trim();
-            const nameExists = restaurants.some(r => r.id !== editRestaurantData.id && r.name.trim().toLowerCase() === updatedName.toLowerCase());
-            if (nameExists) {
-                showToast("Inna restauracja o takiej nazwie już istnieje w bazie!", "error");
-                return;
+            if (restaurants.some(r => r.id !== editRestaurantData.id && r.name.trim().toLowerCase() === updatedName.toLowerCase())) {
+                showToast("Inna restauracja o takiej nazwie już istnieje w bazie!", "error"); return;
             }
 
             setIsSubmittingAction(true);
             try {
                const { id, ...dataToUpdate } = editRestaurantData;
                dataToUpdate.name = updatedName;
-               await getCollRef('restaurants').doc(id).update(dataToUpdate);
-               await logActivity(id, 'restaurant', `Zaktualizowano dane lokalu.`);
+               await getPublicRef('restaurants').doc(id).update(dataToUpdate);
+               await logActivity(id, 'restaurant', `Zaktualizowano dane lokalu: ${updatedName}`);
                setSelectedRestaurant({ id, ...dataToUpdate });
                setIsEditRestaurantModalOpen(false);
                showToast("Zmiany zostały zapisane.");
@@ -961,7 +1768,10 @@
             if (selectedRestaurant && !isSubmittingAction) {
               setIsSubmittingAction(true);
               try {
-                await getCollRef('restaurants').doc(selectedRestaurant.id).delete();
+                const restId = selectedRestaurant.id;
+                const restName = selectedRestaurant.name;
+                await getPublicRef('restaurants').doc(restId).delete();
+                await logActivity('global', 'restaurant', `Usunięto lokal z systemu: ${restName}`);
                 setIsDeleteModalOpen(false);
                 setSelectedRestaurant(null);
                 setActiveTab('restaurants');
@@ -970,51 +1780,213 @@
             }
           };
 
-          // --- ZGŁOSZENIA ---
-          const handleAddTicket = async (e) => {
-            e.preventDefault();
+          const handleSaveTicketDetail = async (ticketData) => {
             if(!db || isSubmittingAction) return;
             setIsSubmittingAction(true);
             try {
-               const newTicket = {
-                 title: newTicketData.title || '', priority: newTicketData.priority || 'Średni',
-                 description: newTicketData.description || '', restaurantId: selectedRestaurant.id,
-                 status: 'Nowe', date: new Date().toISOString().split('T')[0]
-               };
-               await getCollRef('tickets').add(newTicket);
-               await logActivity(selectedRestaurant.id, 'ticket', `Dodano zgłoszenie: ${newTicket.title}`);
-               setNewTicketData({ title: '', priority: 'Średni', description: '' });
-               setIsAddTicketModalOpen(false);
-               showToast("Dodano nowe zgłoszenie.");
-            } catch (err) { handleFirebaseWriteError(err); } finally { setIsSubmittingAction(false); }
+                if (!ticketData.id) {
+                    const newTicket = {
+                        title: ticketData.title || 'Nowe zgłoszenie', 
+                        priority: ticketData.priority || 'Średni',
+                        description: ticketData.description || '', 
+                        restaurantId: ticketData.restaurantId,
+                        status: ticketData.status || 'Nowe', 
+                        date: new Date().toISOString().split('T')[0],
+                        updates: [],
+                        authorEmail: user.email
+                    };
+                    const docRef = await getPublicRef('tickets').add(newTicket);
+                    await logActivity(ticketData.restaurantId, 'ticket', `Utworzono nowe zgłoszenie: "${newTicket.title}"\n\nOpis problemu:\n${newTicket.description}`, docRef.id);
+                    showToast("Zgłoszenie zostało pomyślnie utworzone.");
+                    setActiveTab(selectedRestaurant ? 'details' : 'all_tickets');
+                    setActiveDetailTab('tickets');
+                    setSelectedTicket(null);
+                } else {
+                    const { id, ...dataToUpdate } = ticketData; 
+
+                    let changes = [];
+                    if (dataToUpdate.title && selectedTicket.title !== dataToUpdate.title) changes.push(`Tytuł z "${selectedTicket.title}" na "${dataToUpdate.title}"`);
+                    if (dataToUpdate.status && selectedTicket.status !== dataToUpdate.status) changes.push(`Status z "${selectedTicket.status}" na "${dataToUpdate.status}"`);
+                    if (dataToUpdate.priority && selectedTicket.priority !== dataToUpdate.priority) changes.push(`Priorytet z "${selectedTicket.priority}" na "${dataToUpdate.priority}"`);
+                    if (dataToUpdate.description !== undefined && selectedTicket.description !== dataToUpdate.description) {
+                        changes.push(`Zaktualizowano pierwotny opis usterki.`);
+                    }
+
+                    await getPublicRef('tickets').doc(id).update(dataToUpdate);
+
+                    if (changes.length > 0) {
+                        const desc = `Zaktualizowano zgłoszenie.\n\nZmodyfikowano:\n• ` + changes.join(`\n• `);
+                        await logActivity(ticketData.restaurantId, 'ticket', desc, id);
+                    }
+
+                    setSelectedTicket(prev => ({...prev, ...dataToUpdate}));
+                    showToast("Zmiany w zgłoszeniu zapisane.");
+                }
+            } catch (err) { 
+                handleFirebaseWriteError(err); 
+            } finally { 
+                setIsSubmittingAction(false); 
+            }
+          };
+          
+          const handleAddTicketUpdateWithFiles = async (ticketId, text, files = []) => {
+              if(!db || isSubmittingAction) return;
+              setIsSubmittingAction(true);
+              
+              try {
+                  const updateId = Date.now().toString() + Math.random().toString(36).substr(2, 5);
+                  const updateDate = new Date().toISOString();
+                  let hasAttachedFiles = false;
+
+                  if (files.length > 0 && storage) {
+                      setIsUploadingDoc(true);
+                      setUploadProgress(0);
+                      
+                      for (let i = 0; i < files.length; i++) {
+                          const file = files[i];
+                          const fileName = `${Date.now()}_${file.name}`;
+                          const storagePath = `artifacts/${appId}/public/ticket_attachments/${ticketId}/${fileName}`;
+                          const fileRef = storage.ref().child(storagePath);
+                          
+                          const uploadTask = fileRef.put(file);
+
+                          await new Promise((resolve, reject) => {
+                              uploadTask.on('state_changed', 
+                                  (snapshot) => {
+                                      const fileProgress = snapshot.bytesTransferred / snapshot.totalBytes;
+                                      setUploadProgress(((i + fileProgress) / files.length) * 100);
+                                  }, 
+                                  (error) => { showToast(`Błąd wysyłania: ${file.name}`, "error"); reject(error); }, 
+                                  async () => {
+                                      try {
+                                          const downloadURL = await uploadTask.snapshot.ref.getDownloadURL();
+                                          const sizeMB = file.size / (1024 * 1024);
+                                          const formattedSize = sizeMB >= 1 ? sizeMB.toFixed(2) + ' MB' : (file.size / 1024).toFixed(0) + ' KB';
+                                          const fileExt = file.name.includes('.') ? file.name.split('.').pop().toLowerCase() : 'plik';
+
+                                          await getPublicRef('attachments').add({
+                                              title: file.name, size: formattedSize, type: fileExt, url: downloadURL,
+                                              storagePath: uploadTask.snapshot.ref.fullPath, ticketId: ticketId,
+                                              updateId: updateId, updateDate: updateDate,
+                                              restaurantId: selectedRestaurant?.id || null, date: new Date().toISOString(),
+                                              authorEmail: user.email
+                                          });
+                                          resolve();
+                                      } catch (err) { reject(err); }
+                                  }
+                              );
+                          });
+                      }
+                      hasAttachedFiles = true;
+                      setIsUploadingDoc(false);
+                      setUploadProgress(0);
+                  }
+
+                  if (text.trim() || hasAttachedFiles) {
+                      const authorInfo = currentUserProfile ? `${currentUserProfile.email} (${currentUserProfile.role})` : user.email;
+                      const newUpdate = {
+                          id: updateId, text: text.trim(), date: updateDate, author: authorInfo, authorEmail: user.email, hasAttachments: hasAttachedFiles
+                      };
+                      
+                      await getPublicRef('tickets').doc(ticketId).update({
+                          updates: firebase.firestore.FieldValue.arrayUnion(newUpdate)
+                      });
+                      
+                      let historyMsg = `Dodano nowy wpis do zgłoszenia:\n"${text}"`;
+                      if (hasAttachedFiles) historyMsg += `\n[Oraz załączono pliki: ${files.length}]`;
+                      
+                      await logActivity(selectedRestaurant?.id || 'global', 'ticket', historyMsg, ticketId);
+                      showToast("Wpis został dodany.");
+                  }
+              } catch (err) { 
+                  handleFirebaseWriteError(err); 
+                  setIsUploadingDoc(false);
+                  setUploadProgress(0);
+              } finally { setIsSubmittingAction(false); }
           };
 
-          const handleUpdateTicket = async (e) => {
-            e.preventDefault();
-            if(!db || isSubmittingAction) return;
-            setIsSubmittingAction(true);
-            try {
-               const { id, ...data } = editTicketData;
-               await getCollRef('tickets').doc(id).update(data);
-               await logActivity(data.restaurantId, 'ticket', `Zaktualizowano zgłoszenie: ${data.title}`);
-               setIsEditTicketModalOpen(false);
-               setEditTicketData(null);
-               showToast("Zgłoszenie zaktualizowane.");
-            } catch(err) { handleFirebaseWriteError(err); } finally { setIsSubmittingAction(false); }
+          const handleEditTicketUpdate = async (ticketId, updateId, newText) => {
+              if(!db || isSubmittingAction) return;
+              setIsSubmittingAction(true);
+              try {
+                  const ticketRef = getPublicRef('tickets').doc(ticketId);
+                  const ticketDoc = await ticketRef.get();
+                  if(ticketDoc.exists) {
+                      const tData = ticketDoc.data();
+                      const updatedUpdates = tData.updates.map(u => 
+                          u.id === updateId ? {...u, text: newText} : u
+                      );
+                      
+                      await ticketRef.update({ updates: updatedUpdates });
+                      await logActivity(selectedRestaurant?.id || 'global', 'ticket', `Zaktualizowano wpis w zgłoszeniu:\n"${newText}"`, ticketId);
+                      showToast("Wpis zaktualizowany.");
+                  }
+              } catch (err) { handleFirebaseWriteError(err); } finally { setIsSubmittingAction(false); }
           };
 
-          // --- NOTATKI ---
+          const handleDeleteTicketUpdate = async (ticketId, updateId) => {
+              if(!window.confirm("Czy na pewno chcesz usunąć ten wpis z wątku zgłoszenia?")) return;
+              setIsSubmittingAction(true);
+              try {
+                  const ticketRef = getPublicRef('tickets').doc(ticketId);
+                  const ticketDoc = await ticketRef.get();
+                  if(ticketDoc.exists) {
+                      const tData = ticketDoc.data();
+                      const updatedUpdates = tData.updates.filter(u => u.id !== updateId);
+                      await ticketRef.update({ updates: updatedUpdates });
+                      await logActivity(selectedRestaurant?.id || 'global', 'ticket', `Usunięto wpis z dyskusji zgłoszenia.`, ticketId);
+                      
+                      const attsToDelete = attachments.filter(a => a.updateId === updateId);
+                      for(let att of attsToDelete) {
+                          await getPublicRef('attachments').doc(att.id).delete();
+                          if(att.storagePath && storage) await storage.ref().child(att.storagePath).delete().catch(e=>console.error(e));
+                      }
+
+                      showToast("Wpis został usunięty.");
+                  }
+              } catch (err) { handleFirebaseWriteError(err); } finally { setIsSubmittingAction(false); }
+          };
+
+          const handleDeleteTicket = async (ticket) => {
+              if(!window.confirm(`Czy na pewno chcesz usunąć zgłoszenie "${ticket.title}"?`)) return;
+              setIsSubmittingAction(true);
+              try {
+                  await getPublicRef('tickets').doc(ticket.id).delete();
+                  const ticketAttachments = attachments.filter(a => a.ticketId === ticket.id);
+                  for(const att of ticketAttachments) {
+                      await getPublicRef('attachments').doc(att.id).delete();
+                      if (att.storagePath && storage) {
+                          await storage.ref().child(att.storagePath).delete().catch(e => console.error(e));
+                      }
+                  }
+                  await logActivity(ticket.restaurantId, 'ticket', `Trwale usunięto zgłoszenie: "${ticket.title}"`, ticket.id);
+                  showToast("Zgłoszenie usunięte.");
+                  
+                  setActiveTab(selectedRestaurant ? 'details' : 'all_tickets');
+                  setActiveDetailTab('tickets');
+                  setSelectedTicket(null);
+              } catch(err) {
+                  handleFirebaseWriteError(err);
+              } finally {
+                  setIsSubmittingAction(false);
+              }
+          };
+
           const handleAddNote = async (e) => {
             e.preventDefault();
             if (!newNote.title || !newNote.content || isSubmittingAction) return;
             setIsSubmittingAction(true);
             try {
-               const noteToAdd = { title: newNote.title, content: newNote.content, restaurantId: selectedRestaurant?.id || null };
-               await getCollRef('notes').add(noteToAdd);
-               await logActivity(selectedRestaurant.id, 'note', `Utworzono notatkę: ${newNote.title}`);
+               const noteToAdd = { 
+                   title: newNote.title, 
+                   content: newNote.content, 
+                   restaurantId: selectedRestaurant?.id || null,
+                   authorEmail: user.email
+               };
+               await getPublicRef('notes').add(noteToAdd);
                setNewNote({ title: '', content: '' });
                setIsNoteModalOpen(false);
-               showToast("Notatka dodana.");
+               showToast("Notatka została dodana.");
             } catch(err) { handleFirebaseWriteError(err); } finally { setIsSubmittingAction(false); }
           };
 
@@ -1024,10 +1996,10 @@
             setIsSubmittingAction(true);
             try {
                const { id, ...data } = editNoteData;
-               await getCollRef('notes').doc(id).update(data);
-               await logActivity(data.restaurantId, 'note', `Edytowano notatkę: ${data.title}`);
+               await getPublicRef('notes').doc(id).update(data);
                setIsEditNoteModalOpen(false);
                setEditNoteData(null);
+               showToast("Zaktualizowano notatkę.");
             } catch(err) { handleFirebaseWriteError(err); } finally { setIsSubmittingAction(false); }
           };
 
@@ -1035,15 +2007,13 @@
             if (noteToDelete && !isSubmittingAction) {
                setIsSubmittingAction(true);
                try {
-                  await getCollRef('notes').doc(noteToDelete.id).delete();
-                  await logActivity(noteToDelete.restaurantId, 'note', `Usunięto notatkę: ${noteToDelete.title}`);
+                  await getPublicRef('notes').doc(noteToDelete.id).delete();
                   setNoteToDelete(null);
                   showToast("Notatka usunięta.");
                } catch(err) { handleFirebaseWriteError(err); } finally { setIsSubmittingAction(false); }
             }
           };
 
-          // --- ZADANIA ---
           const handleAddTask = async (e) => {
              e.preventDefault();
              if(!db || isSubmittingAction) return;
@@ -1051,10 +2021,10 @@
              try {
                 const taskToSave = {
                    title: newTaskData.title, deadline: newTaskData.deadline, 
-                   completed: false, restaurantId: selectedRestaurant.id
+                   completed: false, restaurantId: selectedRestaurant.id, authorEmail: user.email
                 };
-                await getCollRef('tasks').add(taskToSave);
-                await logActivity(selectedRestaurant.id, 'task', `Przydzielono nowe zadanie: ${taskToSave.title}`);
+                await getPublicRef('tasks').add(taskToSave);
+                await logActivity(selectedRestaurant.id, 'task', `Dodano nowe zadanie do wykonania: "${taskToSave.title}"`);
                 setNewTaskData({ title: '', deadline: new Date().toISOString().split('T')[0], completed: false });
                 setIsAddTaskModalOpen(false);
                 showToast("Dodano zadanie.");
@@ -1067,8 +2037,8 @@
              setIsSubmittingAction(true);
              try {
                 const { id, ...data } = editTaskData;
-                await getCollRef('tasks').doc(id).update(data);
-                await logActivity(data.restaurantId, 'task', `Zaktualizowano zadanie: ${data.title}`);
+                await getPublicRef('tasks').doc(id).update(data);
+                await logActivity(data.restaurantId, 'task', `Zaktualizowano zadanie: "${data.title}"`);
                 setIsEditTaskModalOpen(false);
                 setEditTaskData(null);
                 showToast("Zadanie zapisane.");
@@ -1078,21 +2048,169 @@
           const handleToggleTask = async (task) => {
              if(!db) return;
              try {
-                await getCollRef('tasks').doc(task.id).update({ completed: !task.completed });
-                await logActivity(task.restaurantId, 'task', `Oznaczono zadanie "${task.title}" jako ${!task.completed ? 'WYKONANE' : 'NIEWYKONANE'}.`);
+                await getPublicRef('tasks').doc(task.id).update({ completed: !task.completed });
+                await logActivity(task.restaurantId, 'task', `Zmieniono status zadania "${task.title}" na: ${!task.completed ? 'WYKONANE' : 'DO ZROBIENIA'}`);
              } catch(err) { handleFirebaseWriteError(err); }
           };
           
           const handleConfirmDeleteTask = async () => {
              if (taskToDelete && !isSubmittingAction) {
-                setIsSubmittingAction(true);
-                try {
-                   await getCollRef('tasks').doc(taskToDelete.id).delete();
-                   await logActivity(taskToDelete.restaurantId, 'task', `Usunięto zadanie: ${taskToDelete.title}`);
-                   setTaskToDelete(null);
-                   showToast("Zadanie usunięte.");
-                } catch(err) { handleFirebaseWriteError(err); } finally { setIsSubmittingAction(false); }
+               setIsSubmittingAction(true);
+               try {
+                  await getPublicRef('tasks').doc(taskToDelete.id).delete();
+                  await logActivity(taskToDelete.restaurantId, 'task', `Usunięto zadanie: "${taskToDelete.title}"`);
+                  setTaskToDelete(null);
+                  showToast("Zadanie usunięte.");
+               } catch(err) { handleFirebaseWriteError(err); } finally { setIsSubmittingAction(false); }
              }
+          };
+
+          const handleDeleteLog = async (logId) => {
+              if(!window.confirm("Czy na pewno chcesz usunąć tę aktywność z historii?")) return;
+              try {
+                  await getPublicRef('history').doc(logId).delete();
+                  showToast("Wpis historii usunięty.");
+              } catch(e) { handleFirebaseWriteError(e); }
+          };
+
+          // --- OPTYMALIZACJA UPLOADU (ZOPTYMALIZOWANY MULTI-UPLOAD DOKUMENTÓW) ---
+          const handleFileUpload = async (e) => {
+             const files = Array.from(e.target.files);
+             if (!files.length || !user || !selectedRestaurant || !storage || isSubmittingAction) return;
+
+             setIsUploadingDoc(true);
+             setIsSubmittingAction(true);
+             setUploadProgress(0);
+
+             try {
+                 for (let i = 0; i < files.length; i++) {
+                     const file = files[i];
+                     const fileName = `${Date.now()}_${file.name}`;
+                     const storagePath = `artifacts/${appId}/public/docs/${fileName}`;
+                     const fileRef = storage.ref().child(storagePath);
+                     
+                     const uploadTask = fileRef.put(file);
+
+                     await new Promise((resolve, reject) => {
+                         uploadTask.on('state_changed', 
+                            (snapshot) => {
+                               // Płynny globalny postęp dla wielu plików
+                               const fileProgress = snapshot.bytesTransferred / snapshot.totalBytes;
+                               setUploadProgress(((i + fileProgress) / files.length) * 100);
+                            }, 
+                            (error) => {
+                               console.error("Upload error", error);
+                               showToast(`Błąd wysyłania: ${file.name}`, "error");
+                               reject(error);
+                            }, 
+                            async () => {
+                               try {
+                                   const downloadURL = await uploadTask.snapshot.ref.getDownloadURL();
+                                   const sizeMB = file.size / (1024 * 1024);
+                                   const formattedSize = sizeMB >= 1 ? sizeMB.toFixed(2) + ' MB' : (file.size / 1024).toFixed(0) + ' KB';
+                                   const fileExt = file.name.includes('.') ? file.name.split('.').pop().toLowerCase() : 'plik';
+
+                                   const docData = {
+                                       title: file.name, size: formattedSize, type: fileExt, url: downloadURL,
+                                       storagePath: uploadTask.snapshot.ref.fullPath, restaurantId: selectedRestaurant.id,
+                                       date: new Date().toISOString(), authorEmail: user.email
+                                   };
+                                   
+                                   await getPublicRef('docs').add(docData);
+                                   resolve();
+                               } catch (err) { reject(err); }
+                            }
+                         );
+                     });
+                 }
+                 
+                 await logActivity(selectedRestaurant.id, 'doc', `Wgrano dokumenty lokalu (ilość: ${files.length})`);
+                 showToast(`Pomyślnie wgrano ${files.length} plik(ów).`);
+             } catch (err) { 
+                 handleFirebaseWriteError(err); 
+             } finally { 
+                 setIsUploadingDoc(false); 
+                 setIsSubmittingAction(false);
+                 setUploadProgress(0); 
+             }
+          };
+
+          // --- OPTYMALIZACJA UPLOADU (W ZGŁOSZENIACH GŁÓWNYCH) ---
+          const handleTicketAttachmentUpload = async (e, ticketId) => {
+              const files = Array.from(e.target.files);
+              if (!files.length || !user || !ticketId || !storage || isSubmittingAction) return;
+
+              setIsUploadingDoc(true);
+              setIsSubmittingAction(true);
+              setUploadProgress(0);
+
+              try {
+                  for (let i = 0; i < files.length; i++) {
+                      const file = files[i];
+                      const fileName = `${Date.now()}_${file.name}`;
+                      const storagePath = `artifacts/${appId}/public/ticket_attachments/${ticketId}/${fileName}`;
+                      const fileRef = storage.ref().child(storagePath);
+                      
+                      const uploadTask = fileRef.put(file);
+
+                      await new Promise((resolve, reject) => {
+                          uploadTask.on('state_changed', 
+                              (snapshot) => {
+                                 const fileProgress = snapshot.bytesTransferred / snapshot.totalBytes;
+                                 setUploadProgress(((i + fileProgress) / files.length) * 100);
+                              }, 
+                              (error) => { showToast(`Błąd wysyłania: ${file.name}`, "error"); reject(error); }, 
+                              async () => {
+                                 try {
+                                     const downloadURL = await uploadTask.snapshot.ref.getDownloadURL();
+                                     const sizeMB = file.size / (1024 * 1024);
+                                     const formattedSize = sizeMB >= 1 ? sizeMB.toFixed(2) + ' MB' : (file.size / 1024).toFixed(0) + ' KB';
+                                     const fileExt = file.name.includes('.') ? file.name.split('.').pop().toLowerCase() : 'plik';
+
+                                     const docData = {
+                                         title: file.name, size: formattedSize, type: fileExt, url: downloadURL,
+                                         storagePath: uploadTask.snapshot.ref.fullPath, ticketId: ticketId,
+                                         restaurantId: selectedRestaurant?.id || null, date: new Date().toISOString(),
+                                         authorEmail: user.email
+                                     };
+                                     
+                                     await getPublicRef('attachments').add(docData);
+                                     resolve();
+                                 } catch (err) { reject(err); }
+                              }
+                          );
+                      });
+                  }
+                  
+                  await logActivity(selectedRestaurant?.id || 'global', 'doc', `Wgrano załączniki do zgłoszenia (ilość: ${files.length})`, ticketId);
+                  showToast(`Załączniki dodane (${files.length} szt.).`);
+              } catch (err) { 
+                  handleFirebaseWriteError(err); 
+              } finally {
+                  setIsUploadingDoc(false);
+                  setIsSubmittingAction(false);
+                  setUploadProgress(0);
+              }
+          };
+
+          const handleDeleteDoc = async (doc) => {
+             if(!window.confirm(`Czy na pewno chcesz usunąć plik "${doc.title}"?`)) return;
+             try {
+                 await getPublicRef('docs').doc(doc.id).delete();
+                 if (doc.storagePath && storage) await storage.ref().child(doc.storagePath).delete().catch(e => console.error(e));
+                 await logActivity(doc.restaurantId, 'doc', `Usunięto dokument: "${doc.title}"`);
+                 showToast("Plik usunięty.");
+             } catch(err) { handleFirebaseWriteError(err); }
+          };
+
+          const handleDeleteAttachment = async (att) => {
+              if(!window.confirm(`Usunąć załącznik "${att.title}"?`)) return;
+              try {
+                  await getPublicRef('attachments').doc(att.id).delete();
+                  if (att.storagePath && storage) await storage.ref().child(att.storagePath).delete().catch(e => console.error(e));
+                  await logActivity(att.restaurantId || 'global', 'doc', `Usunięto załącznik ze zgłoszenia: "${att.title}"`, att.ticketId);
+                  showToast("Załącznik usunięty.");
+              } catch(err) { handleFirebaseWriteError(err); }
           };
 
           // --- MEMOIZED DATA ---
@@ -1170,7 +2288,7 @@
                       {isAuthMode ? 'Witaj ponownie' : 'Utwórz konto'}
                     </h2>
                     <p className="text-center text-sm text-slate-500 mb-8">
-                      {isAuthMode ? 'Zaloguj się, aby zarządzać siecią' : 'Zarejestruj się jako administrator'}
+                      {isAuthMode ? 'Zaloguj się do sieci Restaurant Hub' : 'Zarejestruj się w systemie'}
                     </p>
 
                     {authErrorLocal && (
@@ -1216,15 +2334,27 @@
               <aside className="w-20 md:w-64 bg-white border-r border-slate-200 flex flex-col transition-all shrink-0 relative z-10">
                 <div className="p-6 flex items-center gap-3">
                   <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shrink-0 shadow-lg shadow-indigo-100"><BarChart3 size={24} /></div>
-                  <span className="font-black text-xl tracking-tighter hidden md:block text-indigo-950">RESTAURANT<span className="text-indigo-600">HUB</span></span>
+                  <div className="flex flex-col">
+                      <span className="font-black text-xl tracking-tighter hidden md:block text-indigo-950 leading-none">RESTAURANT<span className="text-indigo-600">HUB</span></span>
+                      {currentUserProfile?.role && <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest hidden md:block mt-1">{currentUserProfile.role}</span>}
+                  </div>
                 </div>
                 <nav className="flex-1 px-4 space-y-2 mt-4 overflow-y-auto">
                   <NavItem icon={LayoutDashboard} label="Dashboard" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
-                  <NavItem icon={Store} label="Restauracje" active={activeTab === 'restaurants' || activeTab === 'details'} onClick={() => setActiveTab('restaurants')} />
-                  <NavItem icon={AlertTriangle} label="Zgłoszenia" active={activeTab === 'all_tickets'} onClick={() => setActiveTab('all_tickets')} />
+                  <NavItem icon={Store} label="Restauracje" active={activeTab === 'restaurants' || activeTab === 'details' || (activeTab === 'ticket_detail' && selectedRestaurant)} onClick={() => setActiveTab('restaurants')} />
+                  <NavItem icon={AlertTriangle} label="Zgłoszenia" active={activeTab === 'all_tickets' || (activeTab === 'ticket_detail' && !selectedRestaurant)} onClick={() => setActiveTab('all_tickets')} />
+                  <NavItem icon={ArchiveIcon} label="Archiwum" active={activeTab === 'archive'} onClick={() => setActiveTab('archive')} />
+                  <div className="h-px bg-slate-100 my-2 mx-4"></div>
                   <NavItem icon={CheckSquare} label="Zadania i Plany" active={activeTab === 'tasks'} onClick={() => setActiveTab('tasks')} />
                   <NavItem icon={BookOpen} label="Dokumentacja" active={activeTab === 'docs'} onClick={() => setActiveTab('docs')} />
-                  <NavItem icon={StickyNote} label="Notatki" active={activeTab === 'notes'} onClick={() => setActiveTab('notes')} />
+                  <NavItem icon={StickyNote} label="Wspólne Notatki" active={activeTab === 'notes'} onClick={() => setActiveTab('notes')} />
+                  
+                  {currentUserProfile?.role === 'Administrator' && (
+                      <>
+                        <div className="h-px bg-slate-100 my-2 mx-4"></div>
+                        <NavItem icon={ShieldCheck} label="Panel Admina" active={activeTab === 'admin'} onClick={() => setActiveTab('admin')} />
+                      </>
+                  )}
                 </nav>
                 <div className="p-4 mt-auto border-t border-slate-100 flex flex-col items-center justify-center">
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center"><span className="hidden md:inline">Wersja </span>{APP_VERSION}</p>
@@ -1250,8 +2380,20 @@
                 </header>
 
                 <div className="flex-1 overflow-y-auto p-8 bg-[#fdfdfe] relative">
-                  {activeTab === 'dashboard' && <DashboardView restaurants={restaurants} tickets={tickets} tasks={tasks} notes={notes} onSelectTicket={(r) => { setSelectedRestaurant(r); setActiveDetailTab('tickets'); setActiveTab('details'); }} />}
+                  {activeTab === 'dashboard' && <DashboardView restaurants={restaurants} tickets={tickets} tasks={tasks} notes={notes} onOpenTicket={handleOpenTicket} onNavigate={setActiveTab} />}
                   
+                  {activeTab === 'admin' && currentUserProfile?.role === 'Administrator' && (
+                      <AdminView 
+                          usersList={systemUsers} 
+                          restaurants={restaurants}
+                          tickets={tickets}
+                          notes={notes}
+                          onRoleChange={handleRoleChange} 
+                          onOpenPasswordModal={(userToChange) => { setPasswordUser(userToChange); setIsPasswordModalOpen(true); }}
+                          onForceDelete={handleAdminForceDelete}
+                      />
+                  )}
+
                   {activeTab === 'restaurants' && (
                     <RestaurantListView 
                       restaurants={filteredAndSortedRestaurants} tickets={tickets} tasks={tasks}
@@ -1270,25 +2412,56 @@
                       activeDetailTab={activeDetailTab} setActiveDetailTab={setActiveDetailTab} setActiveTab={setActiveTab}
                       setIsSettingsOpen={setIsSettingsOpen} isSettingsOpen={isSettingsOpen} setIsDeleteModalOpen={setIsDeleteModalOpen}
                       onEditClick={() => { setEditRestaurantData(selectedRestaurant); setIsEditRestaurantModalOpen(true); }}
-                      onCreateTicket={() => setIsAddTicketModalOpen(true)} onEditTicket={(ticket) => { setEditTicketData(ticket); setIsEditTicketModalOpen(true); }}
+                      canModifyItem={canModifyItem}
+                      onCreateTicket={() => { setSelectedTicket(null); setActiveTab('ticket_detail'); }} 
+                      onOpenTicket={handleOpenTicket}
                       onShareTicket={() => showToast("Udostępnianie działa tylko na serwerze")}
                       isNoteModalOpen={isNoteModalOpen} setIsNoteModalOpen={setIsNoteModalOpen} newNote={newNote} setNewNote={setNewNote}
                       onAddNote={handleAddNote} onDeleteNote={(note) => setNoteToDelete(note)} onEditNote={(note) => { setEditNoteData(note); setIsEditNoteModalOpen(true); }}
                       onAddTask={() => setIsAddTaskModalOpen(true)} onEditTask={(task) => { setEditTaskData(task); setIsEditTaskModalOpen(true); }} 
                       onDeleteTask={(task) => setTaskToDelete(task)} onToggleTask={handleToggleTask}
                       isSubmittingAction={isSubmittingAction}
+                      onFileUpload={handleFileUpload} isUploadingDoc={isUploadingDoc} uploadProgress={uploadProgress} onDeleteDoc={handleDeleteDoc}
+                      onPreview={setPreviewFile} onDeleteLog={handleDeleteLog}
+                    />
+                  )}
+
+                  {activeTab === 'ticket_detail' && (
+                    <TicketDetailView 
+                        ticket={tickets.find(t => t.id === selectedTicket?.id) || selectedTicket} 
+                        restaurant={selectedRestaurant || restaurants.find(r => r.id === selectedTicket?.restaurantId)}
+                        onSave={handleSaveTicketDetail}
+                        onCancel={() => { setActiveTab(selectedRestaurant ? 'details' : 'all_tickets'); setActiveDetailTab('tickets'); }}
+                        onBack={() => { setActiveTab(selectedRestaurant ? 'details' : 'all_tickets'); setActiveDetailTab('tickets'); }}
+                        onDeleteTicket={handleDeleteTicket}
+                        canModifyItem={canModifyItem}
+                        attachments={attachments.filter(a => a.ticketId === selectedTicket?.id)}
+                        onUploadAttachment={handleTicketAttachmentUpload}
+                        isUploading={isUploadingDoc}
+                        uploadProgress={uploadProgress}
+                        onDeleteAttachment={handleDeleteAttachment}
+                        isSubmittingAction={isSubmittingAction}
+                        onPreview={setPreviewFile}
+                        ticketLogs={historyLogs.filter(h => h.ticketId === selectedTicket?.id)}
+                        onAddUpdateWithFiles={handleAddTicketUpdateWithFiles}
+                        onEditUpdate={handleEditTicketUpdate}
+                        onDeleteUpdate={handleDeleteTicketUpdate}
+                        onDeleteLog={handleDeleteLog}
                     />
                   )}
 
                   {activeTab === 'all_tickets' && (
                     <AllTicketsView 
                       tickets={sortedTickets} restaurants={restaurants} 
-                      onEditTicket={(ticket) => { setEditTicketData(ticket); setIsEditTicketModalOpen(true); }}
+                      onOpenTicket={handleOpenTicket}
                       onShareTicket={() => showToast("Udostępnianie działa tylko na serwerze")}
-                      onGoToRestaurant={(r) => { setSelectedRestaurant(r); setActiveDetailTab('tickets'); setActiveTab('details'); }}
                       sortConfig={ticketSortConfig}
                       onRequestSort={(key) => { let dir = 'asc'; if (ticketSortConfig.key === key && ticketSortConfig.direction === 'asc') dir = 'desc'; setTicketSortConfig({ key, direction: dir }); }}
                     />
+                  )}
+
+                  {activeTab === 'archive' && (
+                      <ArchiveView logs={historyLogs} restaurants={restaurants} canModifyItem={canModifyItem} onDeleteLog={handleDeleteLog} />
                   )}
                   
                   {['tasks', 'docs', 'notes'].includes(activeTab) && (
@@ -1314,14 +2487,52 @@
               </main>
 
               {/* MODALS */}
+              {previewFile && <FilePreviewModal file={previewFile} onClose={() => setPreviewFile(null)} />}
+
               {isAddRestaurantModalOpen && <RestaurantModal title="Dodaj Nową Restaurację" data={newRestaurant} setData={setNewRestaurant} onSave={handleAddRestaurant} onCancel={() => setIsAddRestaurantModalOpen(false)} isSubmitting={isSubmittingAction} />}
               {isEditRestaurantModalOpen && <RestaurantModal title="Edytuj Dane Restauracji" data={editRestaurantData} setData={setEditRestaurantData} onSave={handleUpdateRestaurant} onCancel={() => setIsEditRestaurantModalOpen(false)} isSubmitting={isSubmittingAction} />}
               
-              {isAddTicketModalOpen && <TicketModal title="Nowe Zgłoszenie Serwisowe" data={newTicketData} setData={setNewTicketData} onSave={handleAddTicket} onCancel={() => setIsAddTicketModalOpen(false)} isEdit={false} isSubmitting={isSubmittingAction} />}
-              {isEditTicketModalOpen && editTicketData && <TicketModal title="Edytuj Zgłoszenie" data={editTicketData} setData={setEditTicketData} onSave={handleUpdateTicket} onCancel={() => setIsEditTicketModalOpen(false)} isEdit={true} isSubmitting={isSubmittingAction} />}
-
               {isAddTaskModalOpen && <TaskModal title="Dodaj nowe zadanie" data={newTaskData} setData={setNewTaskData} onSave={handleAddTask} onCancel={() => setIsAddTaskModalOpen(false)} isEdit={false} isSubmitting={isSubmittingAction} />}
               {isEditTaskModalOpen && editTaskData && <TaskModal title="Edytuj zadanie" data={editTaskData} setData={setEditTaskData} onSave={handleUpdateTask} onCancel={() => setIsEditTaskModalOpen(false)} isEdit={true} isSubmitting={isSubmittingAction} />}
+
+              {isPasswordModalOpen && passwordUser && (
+                <div className="fixed inset-0 z-[160] flex items-center justify-center p-4">
+                  <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => !isSubmittingAction && setIsPasswordModalOpen(false)} />
+                  <div className="bg-white rounded-3xl p-8 w-full max-w-sm relative shadow-2xl animate-in zoom-in duration-200 text-indigo-950">
+                    <div className="flex items-center gap-3 mb-6">
+                        <div className="w-10 h-10 bg-amber-100 text-amber-600 rounded-xl flex items-center justify-center"><Key size={20} /></div>
+                        <div>
+                            <h3 className="text-lg font-black tracking-tight text-indigo-900 leading-tight">Zarządzanie Hasłem</h3>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{passwordUser.email}</p>
+                        </div>
+                    </div>
+                    
+                    <div className="space-y-6">
+                        <div>
+                            <p className="text-xs text-slate-500 mb-3 leading-relaxed">
+                                Aby bezpiecznie zresetować hasło użytkownika, wyślij mu oficjalny link na adres e-mail, z którego będzie mógł ustawić nowe, własne hasło.
+                            </p>
+                            <button onClick={() => handleSendPasswordResetEmail(passwordUser.email)} disabled={isSubmittingAction} className="w-full py-2.5 text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 rounded-xl transition-all shadow-sm">
+                                Wyślij link do resetu hasła
+                            </button>
+                        </div>
+
+                        <div className="relative border-t border-slate-100 pt-6">
+                            <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-white px-2 text-[10px] font-black text-slate-300 uppercase tracking-widest">LUB RĘCZNIE</span>
+                            <form onSubmit={handleSimulatePasswordChange}>
+                                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Wymuś nowe hasło</label>
+                                <input type="text" required minLength="6" placeholder="Wpisz nowe hasło..." className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm text-indigo-950 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" value={newAdminPassword} onChange={(e) => setNewAdminPassword(e.target.value)} />
+                                <button type="submit" disabled={isSubmittingAction || !newAdminPassword} className="w-full py-3 mt-3 text-xs font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 shadow-md transition-all active:scale-95 disabled:opacity-50">
+                                    {isSubmittingAction ? <Loader2 size={14} className="animate-spin mx-auto" /> : 'Zmień hasło w bazie'}
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    
+                    <button onClick={() => setIsPasswordModalOpen(false)} disabled={isSubmittingAction} className="mt-4 w-full py-2.5 text-xs font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Zamknij</button>
+                  </div>
+                </div>
+              )}
 
               {isDeleteModalOpen && (
                 <div className="fixed inset-0 z-[130] flex items-center justify-center p-4">
@@ -1361,14 +2572,14 @@
                 <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
                   <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => !isSubmittingAction && setIsNoteModalOpen(false)} />
                   <div className="bg-white rounded-3xl p-8 w-full max-w-md relative shadow-2xl animate-in zoom-in duration-200 text-indigo-950">
-                    <h3 className="text-xl font-black mb-6 tracking-tight text-indigo-900">Nowa notatka</h3>
+                    <h3 className="text-xl font-black mb-6 tracking-tight text-indigo-900">Nowa wspólna notatka</h3>
                     <form onSubmit={handleAddNote} className="space-y-4">
                       <div><label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Tytuł</label><input required className="w-full mt-1 p-3 bg-slate-50 border-none rounded-xl outline-none text-sm text-indigo-950" value={newNote.title} onChange={e => setNewNote({...newNote, title: e.target.value})} /></div>
                       <div><label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Treść</label><textarea required rows="5" className="w-full mt-1 p-3 bg-slate-50 border-none rounded-xl outline-none text-sm resize-none text-indigo-950" value={newNote.content} onChange={e => setNewNote({...newNote, content: e.target.value})} /></div>
                       <div className="flex gap-3 pt-4">
                         <button type="button" onClick={() => setIsNoteModalOpen(false)} disabled={isSubmittingAction} className="flex-1 py-3 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">Anuluj</button>
                         <button type="submit" disabled={isSubmittingAction} className="flex-1 py-3 text-sm font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all disabled:opacity-50 flex justify-center items-center gap-2">
-                           {isSubmittingAction ? <Loader2 size={16} className="animate-spin" /> : 'Zapisz'}
+                           {isSubmittingAction ? <Loader2 size={16} className="animate-spin" /> : 'Zapisz dla wszystkich'}
                         </button>
                       </div>
                     </form>
