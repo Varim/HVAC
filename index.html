@@ -25,9 +25,6 @@
         .scrollbar-hide::-webkit-scrollbar { display: none; }
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
-    
-    <!-- Config -->
-    <script src="config.js"></script>
 </head>
 <body class="bg-slate-50 overflow-hidden">
     <div id="root"></div>
@@ -40,7 +37,15 @@
         // ==========================================
         // KONFIGURACJA FIREBASE
         // ==========================================
-        const firebaseConfig = typeof window !== 'undefined' ? window.FIREBASE_CONFIG : null;
+        const firebaseConfig = {
+    apiKey: "AIzaSyB6fu4NDmp-aUMkLWRQdiRPM18jG3Esj7o", 
+    authDomain: "hvac-65786.firebaseapp.com",
+    databaseURL: "https://hvac-65786-default-rtdb.europe-west1.firebasedatabase.app/",
+    projectId: "hvac-65786",
+    storageBucket: "hvac-65786.firebasestorage.app",
+    messagingSenderId: "952576771314",
+    appId: "1:952576771314:web:2179574a35c11281d5bc6b"
+};
         const appId = "local-restaurant-hub";
 
         let db, auth, rtdb;
@@ -1145,7 +1150,7 @@
                     <h2 className="text-xl font-black text-slate-800 mb-2">Błąd konfiguracji</h2>
                     <p className="text-sm text-slate-500 mb-4">{dbError}</p>
                     <div className="text-left text-xs bg-slate-50 p-4 rounded-xl text-slate-600 border border-slate-200">
-                        Upewnij się, że utworzyłeś plik <b>config.js</b> w tym samym folderze co <i>index.html</i> i zawiera on poprawny klucz API z Firebase.
+                        Upewnij się, że wpisałeś poprawne dane Firebase wewnątrz głównego pliku w obiekcie <b>firebaseConfig</b>.
                     </div>
                  </div>
                </div>
