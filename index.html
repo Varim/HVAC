@@ -13,7 +13,7 @@
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Firebase SDK (Zgodne z wersją 8 / UMD dla przeglądarek) -->
+    <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
@@ -25,102 +25,89 @@
         .scrollbar-hide::-webkit-scrollbar { display: none; }
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
+    
+    <!-- Config -->
+    <script src="config.js"></script>
 </head>
 <body class="bg-slate-50 overflow-hidden">
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useMemo, useEffect } = React;
+        const { useState, useMemo, useEffect, memo } = React;
 
-        // ==========================================
-        // WERSJA APLIKACJI
-        // ==========================================
-        const APP_VERSION = "0.3.2";
+        const APP_VERSION = "0.3.5 (Zoptymalizowana)";
 
         // ==========================================
         // KONFIGURACJA FIREBASE
         // ==========================================
-        // Klucz API jest zakodowany za pomocą Base64 (funkcja atob). 
-        // Dzięki temu skanery GitHuba nie rozpoznają go jako klucza i nie wysyłają maili o wycieku,
-        // a aplikacja nadal może bez problemu łączyć się z Twoją bazą lokalnie i w Gemini.
-        const MY_FIREBASE_CONFIG = {
-            apiKey: atob("QUl6YVN5QjZmdTNORE1wLWFVTWtMV1JRZGlSUE0xOGpHM0Vzajdv"), 
-            authDomain: "hvac-65786.firebaseapp.com",
-            databaseURL: "https://hvac-65786-default-rtdb.europe-west1.firebasedatabase.app/",
-            projectId: "hvac-65786",
-            storageBucket: "hvac-65786.firebasestorage.app",
-            messagingSenderId: "952576771314",
-            appId: "1:952576771314:web:2179574a35c11281d5bc6b"
-        };
-
-        const firebaseConfig = MY_FIREBASE_CONFIG;
+        const firebaseConfig = typeof window !== 'undefined' ? window.FIREBASE_CONFIG : null;
         const appId = "local-restaurant-hub";
 
-        let db;
-        let auth;
-        let rtdb;
+        let db, auth, rtdb;
         try {
-             if (!firebase.apps.length) {
+             if (firebaseConfig && !firebase.apps.length) {
                 firebase.initializeApp(firebaseConfig);
             }
-            db = firebase.firestore();
-            auth = firebase.auth();
-            rtdb = firebase.database();
+            if (firebaseConfig) {
+                db = firebase.firestore();
+                auth = firebase.auth();
+                rtdb = firebase.database();
+            }
         } catch (error) {
             console.error("Błąd inicjalizacji Firebase:", error);
         }
 
         // ==========================================
-        // SYSTEM IKON 
+        // SYSTEM IKON (Zoptymalizowany używając React.memo)
         // ==========================================
-        const Svg = ({ size = 24, className = "", children }) => (
+        const Svg = memo(({ size = 24, className = "", children }) => (
             <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
                 {children}
             </svg>
-        );
+        ));
 
-        const Plus = (p) => <Svg {...p}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></Svg>;
-        const Search = (p) => <Svg {...p}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></Svg>;
-        const Clock = (p) => <Svg {...p}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></Svg>;
-        const CheckCircle2 = (p) => <Svg {...p}><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="m9 12 2 2 4-4"/></Svg>;
-        const AlertCircle = (p) => <Svg {...p}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></Svg>;
-        const Trash2 = (p) => <Svg {...p}><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></Svg>;
-        const ChevronRight = (p) => <Svg {...p}><polyline points="9 18 15 12 9 6"/></Svg>;
-        const Store = (p) => <Svg {...p}><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></Svg>;
-        const Calendar = (p) => <Svg {...p}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></Svg>;
-        const AlertTriangle = (p) => <Svg {...p}><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></Svg>;
-        const X = (p) => <Svg {...p}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></Svg>;
-        const LayoutDashboard = (p) => <Svg {...p}><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></Svg>;
-        const ClipboardList = (p) => <Svg {...p}><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></Svg>;
-        const BookOpen = (p) => <Svg {...p}><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></Svg>;
-        const StickyNote = (p) => <Svg {...p}><path d="M15.5 3H5a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2V8.5L15.5 3Z"/><path d="M15 3v6h6"/></Svg>;
-        const MapPin = (p) => <Svg {...p}><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></Svg>;
-        const Settings = (p) => <Svg {...p}><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></Svg>;
-        const FileText = (p) => <Svg {...p}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></Svg>;
-        const CheckSquare = (p) => <Svg {...p}><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></Svg>;
-        const BarChart3 = (p) => <Svg {...p}><path d="M3 3v18h18"/><rect x="7" y="10" width="4" height="7"/><rect x="15" y="4" width="4" height="13"/></Svg>;
-        const MoreVertical = (p) => <Svg {...p}><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></Svg>;
-        const Download = (p) => <Svg {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></Svg>;
-        const ExternalLink = (p) => <Svg {...p}><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></Svg>;
-        const Filter = (p) => <Svg {...p}><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></Svg>;
-        const ArrowUpDown = (p) => <Svg {...p}><path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/></Svg>;
-        const AlertSquare = (p) => <Svg {...p}><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></Svg>;
-        const Save = (p) => <Svg {...p}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></Svg>;
-        const Info = (p) => <Svg {...p}><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></Svg>;
-        const Building2 = (p) => <Svg {...p}><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></Svg>;
-        const Globe = (p) => <Svg {...p}><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/><path d="M2 12h20"/></Svg>;
-        const Mail = (p) => <Svg {...p}><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></Svg>;
-        const Edit = (p) => <Svg {...p}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></Svg>;
-        const Pencil = (p) => <Svg {...p}><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></Svg>;
-        const Share2 = (p) => <Svg {...p}><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></Svg>;
-        const LinkIcon = (p) => <Svg {...p}><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></Svg>;
-        const RotateCcw = (p) => <Svg {...p}><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></Svg>;
-        const Sparkles = (p) => <Svg {...p}><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></Svg>;
-        const Loader2 = (p) => <Svg {...p} className={`animate-spin ${p.className||''}`}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></Svg>;
-        const Wand2 = (p) => <Svg {...p}><path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72Z"/><path d="m14 7 3 3"/><path d="M5 6v4"/><path d="M19 14v4"/><path d="M10 2v2"/><path d="M7 8H3"/><path d="M21 16h-4"/><path d="M11 3H9"/></Svg>;
-        const ChevronUp = (p) => <Svg {...p}><polyline points="18 15 12 9 6 15"/></Svg>;
-        const ChevronDown = (p) => <Svg {...p}><polyline points="6 9 12 15 18 9"/></Svg>;
-        const LogOut = (p) => <Svg {...p}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></Svg>;
+        const Plus = memo((p) => <Svg {...p}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></Svg>);
+        const Search = memo((p) => <Svg {...p}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></Svg>);
+        const Clock = memo((p) => <Svg {...p}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></Svg>);
+        const CheckCircle2 = memo((p) => <Svg {...p}><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="m9 12 2 2 4-4"/></Svg>);
+        const AlertCircle = memo((p) => <Svg {...p}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></Svg>);
+        const Trash2 = memo((p) => <Svg {...p}><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></Svg>);
+        const ChevronRight = memo((p) => <Svg {...p}><polyline points="9 18 15 12 9 6"/></Svg>);
+        const Store = memo((p) => <Svg {...p}><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></Svg>);
+        const Calendar = memo((p) => <Svg {...p}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></Svg>);
+        const AlertTriangle = memo((p) => <Svg {...p}><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></Svg>);
+        const X = memo((p) => <Svg {...p}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></Svg>);
+        const LayoutDashboard = memo((p) => <Svg {...p}><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></Svg>);
+        const ClipboardList = memo((p) => <Svg {...p}><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></Svg>);
+        const BookOpen = memo((p) => <Svg {...p}><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></Svg>);
+        const StickyNote = memo((p) => <Svg {...p}><path d="M15.5 3H5a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2V8.5L15.5 3Z"/><path d="M15 3v6h6"/></Svg>);
+        const MapPin = memo((p) => <Svg {...p}><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></Svg>);
+        const Settings = memo((p) => <Svg {...p}><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></Svg>);
+        const FileText = memo((p) => <Svg {...p}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></Svg>);
+        const CheckSquare = memo((p) => <Svg {...p}><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></Svg>);
+        const BarChart3 = memo((p) => <Svg {...p}><path d="M3 3v18h18"/><rect x="7" y="10" width="4" height="7"/><rect x="15" y="4" width="4" height="13"/></Svg>);
+        const MoreVertical = memo((p) => <Svg {...p}><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></Svg>);
+        const Download = memo((p) => <Svg {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></Svg>);
+        const ExternalLink = memo((p) => <Svg {...p}><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></Svg>);
+        const Filter = memo((p) => <Svg {...p}><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></Svg>);
+        const ArrowUpDown = memo((p) => <Svg {...p}><path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/></Svg>);
+        const AlertSquare = memo((p) => <Svg {...p}><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></Svg>);
+        const Save = memo((p) => <Svg {...p}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></Svg>);
+        const Info = memo((p) => <Svg {...p}><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></Svg>);
+        const Building2 = memo((p) => <Svg {...p}><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></Svg>);
+        const Globe = memo((p) => <Svg {...p}><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/><path d="M2 12h20"/></Svg>);
+        const Mail = memo((p) => <Svg {...p}><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></Svg>);
+        const Edit = memo((p) => <Svg {...p}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></Svg>);
+        const Pencil = memo((p) => <Svg {...p}><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></Svg>);
+        const Share2 = memo((p) => <Svg {...p}><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></Svg>);
+        const LinkIcon = memo((p) => <Svg {...p}><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></Svg>);
+        const RotateCcw = memo((p) => <Svg {...p}><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></Svg>);
+        const Sparkles = memo((p) => <Svg {...p}><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></Svg>);
+        const Loader2 = memo((p) => <Svg {...p} className={`animate-spin ${p.className||''}`}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></Svg>);
+        const Wand2 = memo((p) => <Svg {...p}><path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72Z"/><path d="m14 7 3 3"/><path d="M5 6v4"/><path d="M19 14v4"/><path d="M10 2v2"/><path d="M7 8H3"/><path d="M21 16h-4"/><path d="M11 3H9"/></Svg>);
+        const ChevronUp = memo((p) => <Svg {...p}><polyline points="18 15 12 9 6 15"/></Svg>);
+        const ChevronDown = memo((p) => <Svg {...p}><polyline points="6 9 12 15 18 9"/></Svg>);
+        const LogOut = memo((p) => <Svg {...p}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></Svg>);
 
         // ==========================================
         // DANE POMOCNICZE
@@ -156,9 +143,58 @@
         }
 
         // ==========================================
+        // KOMPONENTY BEZSTANOWE (Zoptymalizowane)
+        // ==========================================
+        const NavItem = memo(({ icon: IconComponent, label, active, onClick }) => (
+          <button onClick={onClick} className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all group ${active ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-slate-400 hover:bg-indigo-50 hover:text-indigo-600'}`}>
+            <IconComponent size={20} className="shrink-0" />
+            <span className="text-sm font-bold hidden md:block whitespace-nowrap">{label}</span>
+          </button>
+        ));
+
+        const StatCard = memo(({ title, value, icon: IconComponent, color }) => {
+          const colors = { blue: 'text-blue-600 bg-blue-50', red: 'text-red-600 bg-red-50', green: 'text-green-600 bg-green-50', orange: 'text-orange-600 bg-orange-50' };
+          return (
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between text-indigo-950">
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 tracking-tight tracking-tighter leading-none">{title}</p>
+                <p className="text-2xl font-black tracking-tight">{value}</p>
+              </div>
+              <div className={`p-3 rounded-xl ${colors[color]}`}><IconComponent size={24} /></div>
+            </div>
+          );
+        });
+
+        const DetailTab = memo(({ label, count, active, icon: IconComponent, onClick }) => (
+          <button onClick={onClick} className={`flex items-center gap-2 pb-4 px-1 text-sm font-bold transition-all border-b-2 whitespace-nowrap ${active ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}>
+            <IconComponent size={16} /> {label}
+            {count !== undefined && <span className={`ml-1 text-[10px] px-1.5 py-0.5 rounded-full ${active ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500'}`}>{count}</span>}
+          </button>
+        ));
+
+        const DocItem = memo(({ title, size, type }) => (
+          <div className="bg-white p-4 border border-slate-100 rounded-xl flex items-center gap-4 hover:border-indigo-200 transition-all cursor-pointer shadow-sm group text-indigo-950">
+            <div className={`w-12 h-12 rounded-lg flex items-center justify-center font-black text-[10px] ${type === 'pdf' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>{type ? type.toUpperCase() : 'DOC'}</div>
+            <div className="flex-1 overflow-hidden">
+              <p className="text-xs font-bold truncate">{title}</p><p className="text-[10px] text-slate-400 mt-0.5 tracking-tight tracking-tighter leading-none">{size}</p>
+            </div>
+            <Download size={14} className="text-slate-300 group-hover:text-indigo-600 transition-colors" />
+          </div>
+        ));
+
+        const InfoRow = memo(({ icon: IconComponent, label, value }) => (
+          <div className="flex items-center gap-4">
+            <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400"><IconComponent size={16} /></div>
+            <div className="flex-1">
+              <p className="text-[10px] font-bold text-slate-400 uppercase leading-none mb-1 tracking-tight tracking-tighter">{label}</p>
+              <p className="text-sm font-semibold text-slate-700 break-all leading-tight">{value}</p>
+            </div>
+          </div>
+        ));
+
+        // ==========================================
         // KOMPONENTY WIDOKÓW
         // ==========================================
-        
         const DashboardView = ({ restaurants, tickets, tasks, notes, onSelectTicket }) => (
           <div className="space-y-6 animate-in fade-in duration-500">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -177,19 +213,13 @@
                   {tickets.slice(0, 5).map(t => {
                     const tRest = restaurants.find(r => r.id === t.restaurantId);
                     return (
-                      <div 
-                        key={t.id} 
-                        onClick={() => tRest && onSelectTicket(tRest)}
-                        className="flex items-center justify-between p-3 bg-slate-50 rounded-xl cursor-pointer hover:bg-indigo-50 hover:shadow-sm transition-all group"
-                      >
+                      <div key={t.id} onClick={() => tRest && onSelectTicket(tRest)} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl cursor-pointer hover:bg-indigo-50 hover:shadow-sm transition-all group">
                         <div className="flex-1">
                           <p className="font-semibold text-sm group-hover:text-indigo-700 transition-colors">{t.title}</p>
                           <p className="text-xs text-slate-500">{tRest ? tRest.name : 'Nieznany lokal'}</p>
                         </div>
                         <div className="flex items-center gap-3">
-                          <span className={`text-[10px] px-2 py-1 rounded-full font-bold uppercase ${t.priority === 'Wysoki' ? 'bg-red-100 text-red-700' : 'bg-slate-100'}`}>
-                            {t.priority}
-                          </span>
+                          <span className={`text-[10px] px-2 py-1 rounded-full font-bold uppercase ${t.priority === 'Wysoki' ? 'bg-red-100 text-red-700' : 'bg-slate-100'}`}>{t.priority}</span>
                           <ChevronRight size={14} className="text-slate-300 group-hover:text-indigo-400 group-hover:translate-x-1 transition-all" />
                         </div>
                       </div>
@@ -213,9 +243,7 @@
                       </div>
                     </div>
                   ))}
-                  {tasks.filter(t => !t.completed).length === 0 && (
-                     <p className="text-sm text-slate-400 italic">Brak otwartych zadań w systemie.</p>
-                  )}
+                  {tasks.filter(t => !t.completed).length === 0 && <p className="text-sm text-slate-400 italic">Brak otwartych zadań w systemie.</p>}
                 </div>
               </div>
             </div>
@@ -240,19 +268,11 @@
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200 text-[10px] uppercase font-black text-slate-500">
-                      <th className="px-4 py-3 cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => onRequestSort('date')}>
-                        <div className="flex items-center gap-1">Data {renderSortIcon('date')}</div>
-                      </th>
-                      <th className="px-4 py-3 cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => onRequestSort('restaurantName')}>
-                        <div className="flex items-center gap-1">Lokal {renderSortIcon('restaurantName')}</div>
-                      </th>
+                      <th className="px-4 py-3 cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => onRequestSort('date')}><div className="flex items-center gap-1">Data {renderSortIcon('date')}</div></th>
+                      <th className="px-4 py-3 cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => onRequestSort('restaurantName')}><div className="flex items-center gap-1">Lokal {renderSortIcon('restaurantName')}</div></th>
                       <th className="px-4 py-3">Problem</th>
-                      <th className="px-4 py-3 cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => onRequestSort('priority')}>
-                        <div className="flex items-center gap-1">Priorytet {renderSortIcon('priority')}</div>
-                      </th>
-                      <th className="px-4 py-3 cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => onRequestSort('status')}>
-                        <div className="flex items-center gap-1">Status {renderSortIcon('status')}</div>
-                      </th>
+                      <th className="px-4 py-3 cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => onRequestSort('priority')}><div className="flex items-center gap-1">Priorytet {renderSortIcon('priority')}</div></th>
+                      <th className="px-4 py-3 cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => onRequestSort('status')}><div className="flex items-center gap-1">Status {renderSortIcon('status')}</div></th>
                       <th className="px-4 py-3">Akcje</th>
                     </tr>
                   </thead>
@@ -262,24 +282,10 @@
                       return (
                         <tr key={t.id} className="hover:bg-slate-50 transition-colors">
                           <td className="px-4 py-3 text-xs text-slate-500">{t.date}</td>
-                          <td className="px-4 py-3">
-                            <p className="text-xs font-bold text-slate-800">{r?.name}</p>
-                            <p className="text-[9px] text-slate-400">{r?.brand}</p>
-                          </td>
+                          <td className="px-4 py-3"><p className="text-xs font-bold text-slate-800">{r?.name}</p><p className="text-[9px] text-slate-400">{r?.brand}</p></td>
                           <td className="px-4 py-3 text-xs font-medium text-slate-700">{t.title}</td>
-                          <td className="px-4 py-3">
-                            <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase ${t.priority === 'Wysoki' ? 'bg-red-50 text-red-600' : 'bg-slate-100'}`}>
-                              {t.priority}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className={`text-[10px] px-2 py-1 rounded-md font-bold ${
-                              t.status === 'Zakończone' ? 'bg-green-50 text-green-700' : 
-                              t.status === 'W realizacji' ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-700'
-                            }`}>
-                              {t.status}
-                            </span>
-                          </td>
+                          <td className="px-4 py-3"><span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase ${t.priority === 'Wysoki' ? 'bg-red-50 text-red-600' : 'bg-slate-100'}`}>{t.priority}</span></td>
+                          <td className="px-4 py-3"><span className={`text-[10px] px-2 py-1 rounded-md font-bold ${t.status === 'Zakończone' ? 'bg-green-50 text-green-700' : t.status === 'W realizacji' ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-700'}`}>{t.status}</span></td>
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2">
                               <button onClick={() => onEditTicket(t)} className="text-slate-400 hover:text-indigo-600 transition-colors" title="Edytuj zgłoszenie"><Pencil size={14} /></button>
@@ -290,9 +296,7 @@
                         </tr>
                       );
                     })}
-                    {tickets.length === 0 && (
-                        <tr><td colSpan="6" className="text-center py-8 text-sm text-slate-400">Brak zgłoszeń w bazie.</td></tr>
-                    )}
+                    {tickets.length === 0 && <tr><td colSpan="6" className="text-center py-8 text-sm text-slate-400">Brak zgłoszeń w bazie.</td></tr>}
                   </tbody>
                 </table>
               </div>
@@ -308,12 +312,8 @@
                 <p className="text-slate-500 text-xs">Zarządzaj siecią lokali i ich danymi technicznymi</p>
               </div>
               <div className="flex items-center gap-2">
-                <button onClick={onResetFilters} className="bg-slate-100 text-slate-600 px-3 py-1.5 rounded-lg flex items-center gap-1.5 text-xs font-bold hover:bg-slate-200 transition-all active:scale-95 border border-slate-200" title="Wyczyść wszystkie filtry">
-                  <RotateCcw size={14} /> Wyczyść filtry
-                </button>
-                <button onClick={onAddClick} className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg flex items-center gap-1.5 text-xs font-bold shadow-sm hover:bg-indigo-700 transition-all active:scale-95">
-                  <Plus size={14} /> Dodaj Lokal
-                </button>
+                <button onClick={onResetFilters} className="bg-slate-100 text-slate-600 px-3 py-1.5 rounded-lg flex items-center gap-1.5 text-xs font-bold hover:bg-slate-200 transition-all active:scale-95 border border-slate-200" title="Wyczyść wszystkie filtry"><RotateCcw size={14} /> Wyczyść filtry</button>
+                <button onClick={onAddClick} className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg flex items-center gap-1.5 text-xs font-bold shadow-sm hover:bg-indigo-700 transition-all active:scale-95"><Plus size={14} /> Dodaj Lokal</button>
               </div>
             </div>
             
@@ -364,9 +364,7 @@
                         <td className="px-4 py-2.5 text-right"><div className="opacity-0 group-hover:opacity-100 transition-opacity"><ChevronRight size={14} className="text-indigo-600 inline-block" /></div></td>
                       </tr>
                     ))}
-                    {restaurants.length === 0 && (
-                        <tr><td colSpan="5" className="text-center py-8 text-sm text-slate-400">Brak restauracji w bazie danych. Dodaj pierwszą klikając "Dodaj Lokal".</td></tr>
-                    )}
+                    {restaurants.length === 0 && <tr><td colSpan="5" className="text-center py-8 text-sm text-slate-400">Brak restauracji w bazie danych. Dodaj pierwszą klikając "Dodaj Lokal".</td></tr>}
                   </tbody>
                 </table>
               </div>
@@ -379,8 +377,7 @@
           setIsSettingsOpen, isSettingsOpen, setIsDeleteModalOpen, onEditClick, 
           onCreateTicket, onEditTicket, onShareTicket, 
           isNoteModalOpen, setIsNoteModalOpen, newNote, setNewNote, onAddNote, onDeleteNote, onEditNote,
-          onAddTask, onEditTask, onDeleteTask, onToggleTask,
-          isSubmittingAction 
+          onAddTask, onEditTask, onDeleteTask, onToggleTask, isSubmittingAction 
         }) => {
           const [report, setReport] = useState('');
           const [loading, setLoading] = useState(false);
@@ -395,9 +392,7 @@
               setReport(result);
             } catch (e) {
               setReport("Błąd generowania raportu.");
-            } finally {
-              setLoading(false);
-            }
+            } finally { setLoading(false); }
           };
 
           const counts = {
@@ -409,24 +404,15 @@
 
           return (
             <div className="space-y-6 animate-in fade-in duration-300">
-              <button onClick={() => setActiveTab('restaurants')} className="text-indigo-600 font-semibold text-sm flex items-center gap-1 hover:underline group">
-                <ChevronRight size={16} className="rotate-180 group-hover:-translate-x-1 transition-transform" /> Powrót do bazy
-              </button>
+              <button onClick={() => setActiveTab('restaurants')} className="text-indigo-600 font-semibold text-sm flex items-center gap-1 hover:underline group"><ChevronRight size={16} className="rotate-180 group-hover:-translate-x-1 transition-transform" /> Powrót do bazy</button>
               
               <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden">
                  <div className={`absolute top-0 left-0 bottom-0 w-2 ${BRANDS[r.brand]?.color || 'bg-slate-400'}`} />
                 <div className="flex flex-col md:flex-row justify-between gap-4">
                   <div className="flex gap-4 items-center">
-                    <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-white text-xl font-black shadow-lg ${BRANDS[r.brand]?.color || 'bg-slate-400'}`}>
-                      {(r.brand && r.brand[0]) || 'R'}
-                    </div>
+                    <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-white text-xl font-black shadow-lg ${BRANDS[r.brand]?.color || 'bg-slate-400'}`}>{(r.brand && r.brand[0]) || 'R'}</div>
                     <div>
-                      <div className="flex items-center gap-2">
-                        <h2 className="text-2xl font-bold text-indigo-950">{r.name}</h2>
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${BRANDS[r.brand]?.color || 'bg-slate-400'} text-white`}>
-                          {r.brand}
-                        </span>
-                      </div>
+                      <div className="flex items-center gap-2"><h2 className="text-2xl font-bold text-indigo-950">{r.name}</h2><span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${BRANDS[r.brand]?.color || 'bg-slate-400'} text-white`}>{r.brand}</span></div>
                       <p className="text-slate-500 flex items-center gap-1 text-sm mt-1 tracking-tight"><MapPin size={14} /> {r.address}, {r.city}</p>
                     </div>
                   </div>
@@ -475,10 +461,7 @@
                           <div className="flex gap-3 items-start">
                             <div className={`p-2 rounded-lg ${t.priority === 'Wysoki' ? 'bg-red-50 text-red-600' : 'bg-slate-50 text-slate-500'}`}><AlertTriangle size={18} /></div>
                             <div>
-                              <div className="flex items-center gap-2">
-                                 <p className="text-sm font-bold leading-tight">{t.title}</p>
-                                 <span className={`text-[9px] px-1.5 py-0.5 rounded font-black uppercase tracking-tight ${t.status === 'Zakończone' ? 'bg-green-100 text-green-700' : 'bg-indigo-50 text-indigo-700'}`}>{t.status}</span>
-                              </div>
+                              <div className="flex items-center gap-2"><p className="text-sm font-bold leading-tight">{t.title}</p><span className={`text-[9px] px-1.5 py-0.5 rounded font-black uppercase tracking-tight ${t.status === 'Zakończone' ? 'bg-green-100 text-green-700' : 'bg-indigo-50 text-indigo-700'}`}>{t.status}</span></div>
                               <p className="text-xs text-slate-500 mt-1 leading-relaxed">{t.description}</p>
                               <div className="flex gap-4 mt-2 items-center">
                                 <span className={`text-[10px] font-bold uppercase ${t.priority === 'Wysoki' ? 'text-red-600' : 'text-slate-400'}`}>Priorytet: {t.priority}</span>
@@ -510,9 +493,7 @@
                             {tasks.filter(t => t.restaurantId === r.id).map(t => (
                                <div key={t.id} className={`flex items-center justify-between p-4 group transition-colors ${t.completed ? 'bg-slate-50 opacity-75' : 'bg-white hover:bg-slate-50'}`}>
                                   <div className="flex items-center gap-3">
-                                     <button onClick={() => onToggleTask(t)} className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${t.completed ? 'bg-green-500 border-green-500 text-white' : 'border-slate-300 text-transparent hover:border-green-400'}`}>
-                                        <CheckCircle2 size={14} />
-                                     </button>
+                                     <button onClick={() => onToggleTask(t)} className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${t.completed ? 'bg-green-500 border-green-500 text-white' : 'border-slate-300 text-transparent hover:border-green-400'}`}><CheckCircle2 size={14} /></button>
                                      <div>
                                         <p className={`text-sm font-bold ${t.completed ? 'text-slate-500 line-through' : 'text-indigo-950'}`}>{t.title}</p>
                                         <p className="text-[10px] text-slate-400 font-medium flex items-center gap-1"><Calendar size={10} /> Termin: {t.deadline}</p>
@@ -549,9 +530,7 @@
                           <p className="text-xs text-amber-800 leading-relaxed break-words whitespace-pre-wrap">{note.content}</p>
                         </div>
                       ))}
-                      {notes.filter(n => n.restaurantId === r.id).length === 0 && (
-                          <div className="col-span-2 text-center py-8"><p className="text-slate-400 text-sm italic">Brak notatek dla tego lokalu.</p></div>
-                      )}
+                      {notes.filter(n => n.restaurantId === r.id).length === 0 && <div className="col-span-2 text-center py-8"><p className="text-slate-400 text-sm italic">Brak notatek dla tego lokalu.</p></div>}
                     </div>
                   </div>
                 )}
@@ -572,9 +551,7 @@
                                  const parsedDate = new Date(log.date);
                                  return (
                                  <div key={log.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-                                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white bg-slate-50 text-slate-500 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
-                                       {getIcon(log.type)}
-                                    </div>
+                                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white bg-slate-50 text-slate-500 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">{getIcon(log.type)}</div>
                                     <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
                                        <div className="flex items-center justify-between space-x-2 mb-1">
                                           <div className="font-bold text-slate-800 text-xs">{log.description}</div>
@@ -626,53 +603,6 @@
             </div>
           );
         };
-
-        const NavItem = ({ icon: IconComponent, label, active, onClick }) => (
-          <button onClick={onClick} className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all group ${active ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-slate-400 hover:bg-indigo-50 hover:text-indigo-600'}`}>
-            <IconComponent size={20} className="shrink-0" />
-            <span className="text-sm font-bold hidden md:block whitespace-nowrap">{label}</span>
-          </button>
-        );
-
-        const StatCard = ({ title, value, icon: IconComponent, color }) => {
-          const colors = { blue: 'text-blue-600 bg-blue-50', red: 'text-red-600 bg-red-50', green: 'text-green-600 bg-green-50', orange: 'text-orange-600 bg-orange-50' };
-          return (
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between text-indigo-950">
-              <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 tracking-tight tracking-tighter leading-none">{title}</p>
-                <p className="text-2xl font-black tracking-tight">{value}</p>
-              </div>
-              <div className={`p-3 rounded-xl ${colors[color]}`}><IconComponent size={24} /></div>
-            </div>
-          );
-        };
-
-        const DetailTab = ({ label, count, active, icon: IconComponent, onClick }) => (
-          <button onClick={onClick} className={`flex items-center gap-2 pb-4 px-1 text-sm font-bold transition-all border-b-2 whitespace-nowrap ${active ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}>
-            <IconComponent size={16} /> {label}
-            {count !== undefined && <span className={`ml-1 text-[10px] px-1.5 py-0.5 rounded-full ${active ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500'}`}>{count}</span>}
-          </button>
-        );
-
-        const DocItem = ({ title, size, type }) => (
-          <div className="bg-white p-4 border border-slate-100 rounded-xl flex items-center gap-4 hover:border-indigo-200 transition-all cursor-pointer shadow-sm group text-indigo-950">
-            <div className={`w-12 h-12 rounded-lg flex items-center justify-center font-black text-[10px] ${type === 'pdf' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>{type ? type.toUpperCase() : 'DOC'}</div>
-            <div className="flex-1 overflow-hidden">
-              <p className="text-xs font-bold truncate">{title}</p><p className="text-[10px] text-slate-400 mt-0.5 tracking-tight tracking-tighter leading-none">{size}</p>
-            </div>
-            <Download size={14} className="text-slate-300 group-hover:text-indigo-600 transition-colors" />
-          </div>
-        );
-
-        const InfoRow = ({ icon: IconComponent, label, value }) => (
-          <div className="flex items-center gap-4">
-            <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400"><IconComponent size={16} /></div>
-            <div className="flex-1">
-              <p className="text-[10px] font-bold text-slate-400 uppercase leading-none mb-1 tracking-tight tracking-tighter">{label}</p>
-              <p className="text-sm font-semibold text-slate-700 break-all leading-tight">{value}</p>
-            </div>
-          </div>
-        );
 
         // --- SUB-COMPONENTS FOR MODALS ---
         const RestaurantModal = ({ title, data, setData, onSave, onCancel, isSubmitting }) => (
@@ -827,7 +757,7 @@
           const [isAuthMode, setIsAuthMode] = useState(true);
           const [authEmail, setAuthEmail] = useState('');
           const [authPassword, setAuthPassword] = useState('');
-          const [rememberMe, setRememberMe] = useState(true); // ZAPAMIĘTYWANIE HASŁA
+          const [rememberMe, setRememberMe] = useState(true); 
           const [authErrorLocal, setAuthErrorLocal] = useState('');
           const [isAuthLoading, setIsAuthLoading] = useState(false);
 
@@ -837,7 +767,7 @@
           const [tasks, setTasks] = useState([]);
           const [notes, setNotes] = useState([]);
           const [docs, setDocs] = useState([]);
-          const [historyLogs, setHistoryLogs] = useState([]); // LOGI HISTORII
+          const [historyLogs, setHistoryLogs] = useState([]); 
           const [searchQuery, setSearchQuery] = useState('');
           const [toast, setToast] = useState(null);
           const [toastType, setToastType] = useState('info'); 
@@ -878,10 +808,20 @@
           const [ticketSortConfig, setTicketSortConfig] = useState({ key: 'date', direction: 'desc' });
           const [columnFilters, setColumnFilters] = useState({ brand: '', name: '', city: '' });
 
+          // --- AUTOMATYCZNE ZAMYKANIE ROZWIJANYCH MENU ---
+          useEffect(() => {
+            setIsSettingsOpen(false);
+          }, [activeTab, selectedRestaurant, activeDetailTab]);
+
           // --- FIREBASE INIT ---
           useEffect(() => {
+            if (!firebaseConfig) {
+                setDbError("Brak pliku config.js lub błędna konfiguracja!");
+                setIsConnecting(false);
+                return;
+            }
             if (!auth) {
-                setDbError("Brak konfiguracji Firebase.");
+                setDbError("Brak poprawnej inicjalizacji Firebase.");
                 setIsConnecting(false);
                 return;
             }
@@ -966,10 +906,18 @@
           const handleAddRestaurant = async (e) => {
             e.preventDefault();
             if(!db || isSubmittingAction) return;
+
+            const newName = (newRestaurant.name || '').trim();
+            const nameExists = restaurants.some(r => r.name.trim().toLowerCase() === newName.toLowerCase());
+            if (nameExists) {
+                showToast("Restauracja o takiej nazwie już istnieje w bazie!", "error");
+                return;
+            }
+
             setIsSubmittingAction(true);
             try {
                const dataToSave = {
-                 name: newRestaurant.name || '', brand: newRestaurant.brand || 'KFC',
+                 name: newName, brand: newRestaurant.brand || 'KFC',
                  city: newRestaurant.city || '', address: newRestaurant.address || '',
                  ip: newRestaurant.ip || '', email: newRestaurant.email || ''
                };
@@ -984,9 +932,18 @@
           const handleUpdateRestaurant = async (e) => {
             e.preventDefault();
             if(!db || isSubmittingAction) return;
+
+            const updatedName = (editRestaurantData.name || '').trim();
+            const nameExists = restaurants.some(r => r.id !== editRestaurantData.id && r.name.trim().toLowerCase() === updatedName.toLowerCase());
+            if (nameExists) {
+                showToast("Inna restauracja o takiej nazwie już istnieje w bazie!", "error");
+                return;
+            }
+
             setIsSubmittingAction(true);
             try {
                const { id, ...dataToUpdate } = editRestaurantData;
+               dataToUpdate.name = updatedName;
                await getCollRef('restaurants').doc(id).update(dataToUpdate);
                await logActivity(id, 'restaurant', `Zaktualizowano dane lokalu.`);
                setSelectedRestaurant({ id, ...dataToUpdate });
@@ -1176,6 +1133,21 @@
                <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center text-indigo-600 space-y-4">
                   <Loader2 size={40} className="animate-spin" />
                   <p className="font-bold uppercase tracking-widest text-sm text-indigo-950/50">Łączenie z bazą danych...</p>
+               </div>
+             );
+          }
+
+          if (dbError) {
+             return (
+               <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+                 <div className="w-full max-w-md bg-white rounded-3xl shadow-xl border border-red-100 p-8 text-center">
+                    <div className="w-16 h-16 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center mx-auto mb-4"><AlertTriangle size={32} /></div>
+                    <h2 className="text-xl font-black text-slate-800 mb-2">Błąd konfiguracji</h2>
+                    <p className="text-sm text-slate-500 mb-4">{dbError}</p>
+                    <div className="text-left text-xs bg-slate-50 p-4 rounded-xl text-slate-600 border border-slate-200">
+                        Upewnij się, że utworzyłeś plik <b>config.js</b> w tym samym folderze co <i>index.html</i> i zawiera on poprawny klucz API z Firebase.
+                    </div>
+                 </div>
                </div>
              );
           }
